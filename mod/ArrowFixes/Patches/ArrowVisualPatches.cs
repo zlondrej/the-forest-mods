@@ -16,7 +16,7 @@ namespace ArrowFixes
     ///  - ActiveBonusListenerMat tints the wooden mesh: cloth = red, poison = cyan-green (same texture, _Color only).
     /// All of them match a single ActiveBonus, so a coated bone/modern arrow looked like a coated wooden one.
     /// Here a coated arrow matches both its coating and its base, and the base mesh gets the coating's tint. The cloth
-    /// wrap mesh is shaped for the wooden arrow, so it stays hidden on bone/modern models.
+    /// wrap mesh is shaped for the wooden arrow, so on bone/modern models it stays hidden and a generated wrap is shown.
     /// </summary>
     [HarmonyPatch] // class-level attribute required, or the class processor skips the method patches
     internal static class ArrowVisualPatches
@@ -41,18 +41,22 @@ namespace ArrowFixes
             bool combo = ArrowUtil.IsCoating(p.ActiveBonus) && ArrowUtil.IsBase(b);
             bool targetIsBase = ArrowUtil.IsBase(__instance._bonusToActivate);
 
+            bool isCloth = __instance._bonusToActivate == ArrowBonus.BurningAmmo && !__instance._inverse;
             if (!combo)
             {
                 if (targetIsBase) SetTint(__instance._targetGOs, __instance._targetObjects, null);
+                if (isCloth) ClothWraps.UpdateView(view, __instance, ArrowUtil.NoBonus);
                 return true;
             }
 
-            // The cloth wrap mesh is shaped for the wooden arrow: leave it off on bone/modern models (the tint shows the coating).
+            // The game's cloth wrap mesh is shaped for the wooden arrow: leave it off on bone/modern models, which get a
+            // generated wrap instead.
             bool flag = __instance._bonusToActivate == b ||
                         (__instance._bonusToActivate == p.ActiveBonus && __instance._bonusToActivate != ArrowBonus.BurningAmmo);
             if (__instance._inverse) flag = !flag;
             Apply(__instance._targetGOs, __instance._targetObjects, flag);
             if (targetIsBase) SetTint(__instance._targetGOs, __instance._targetObjects, flag ? TintFor(view, p.ActiveBonus) : (Color?)null);
+            if (isCloth) ClothWraps.UpdateView(view, __instance, p.ActiveBonus == ArrowBonus.BurningAmmo ? b : ArrowUtil.NoBonus);
             return false;
         }
 

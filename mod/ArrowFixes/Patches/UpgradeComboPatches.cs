@@ -136,7 +136,8 @@ namespace ArrowFixes
 
     /// <summary>
     /// Show the bone/modern arrow model on the bow for coated bone/modern arrows, tinted like the vanilla cloth/poison
-    /// arrow. The cloth wrap mesh is shaped for the wooden arrow, so it is hidden on bone/modern models.
+    /// arrow. The game's cloth wrap mesh is shaped for the wooden arrow, so on bone/modern models it is hidden and a
+    /// generated wrap (<see cref="ClothWraps"/>) is shown instead.
     /// </summary>
     [HarmonyPatch(typeof(BowController), "UpdateArrowRenderer")]
     internal static class BowArrowRendererPatch
@@ -151,6 +152,7 @@ namespace ArrowFixes
             ArrowVisualPatches.SetTint(__instance._boneAmmoAnimationRenderer, tint);
             ArrowVisualPatches.SetTint(__instance._modernAmmoAnimationRenderer, tint);
             foreach (var cloth in ArrowTipAlign.BowCloth(__instance)) ArrowTipAlign.SetHidden(cloth, combo);
+            ClothWraps.UpdateBow(__instance, arrow);
             if (!combo) return;
             if (__instance._ammoAnimationRenderer) __instance._ammoAnimationRenderer.enabled = false;
             if (__instance._boneAmmoAnimationRenderer) __instance._boneAmmoAnimationRenderer.enabled = b == ArrowBonus.BoneAmmo;
