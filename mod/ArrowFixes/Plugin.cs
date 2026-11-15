@@ -18,6 +18,13 @@ namespace ArrowFixes
             Log = Logger;
             var harmony = new Harmony(Guid);
 
+            Dbg.On = Config.Bind("Debug", "VerboseLogging", false,
+                "Write detailed [debug] lines to BepInEx/LogOutput.log (crafting, arrow cycling, lighting, every arrow upgrade change).").Value;
+            if (Dbg.On)
+            {
+                Try("VerboseLogging", () => harmony.CreateClassProcessor(typeof(DebugBonusChangePatches)).Patch());
+            }
+
             Apply(harmony, "BoneArrowPickup",
                 "Fired bone arrows give a bone arrow back when picked up (and stick into enemies as bone arrows).",
                 typeof(BoneArrowPickupPatch));

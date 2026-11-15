@@ -60,36 +60,56 @@ namespace ArrowFixes
 
             if (!_lighterPressed())
             {
+                if (_holdStart >= 0f) Dbg.Log("light: Lighter released");
                 _holdStart = -1f;
                 return;
             }
-            if (_holdStart < 0f) _holdStart = Time.realtimeSinceStartup;
+            if (_holdStart < 0f)
+            {
+                _holdStart = Time.realtimeSinceStartup;
+                Dbg.Forget("lightBlocked");
+                Dbg.Log("light: Lighter pressed");
+            }
             if (Time.realtimeSinceStartup - _holdStart < HoldSeconds) return;
-            _holdStart = float.MaxValue; // fire once per press
 
-            if (!CanLight(__instance)) return;
+            // Keep trying while the button is held (something may be busy for a moment), but light only once per press.
+            var blocked = WhyNotLight(__instance);
+            if (blocked != null)
+            {
+                Dbg.Changed("lightBlocked", "light: not lighting: " + blocked);
+                return;
+            }
+            _holdStart = float.MaxValue;
             LightArrowMethod.Invoke(__instance, null);
             _litBy = __instance;
-            AttachFlameToHeldArrow(__instance);
+            var attached = AttachFlameToHeldArrow(__instance);
+            Dbg.Log($"light: lit, flame object {(__instance._activeFireArrowGO ? "created" : "MISSING")}, " +
+                    $"{(attached ? "attached to the arrow in the VR hand" : "NOT attached to a VR arrow (no held arrow found)")}");
         }
 
-        private static bool CanLight(BowController bow)
+        /// <summary>Null when the arrow can be lit, else the reason it can't.</summary>
+        private static string WhyNotLight(BowController bow)
         {
-            if (bow._player == null || bow._player.CurrentView != PlayerInventory.PlayerViews.World) return false;
-            if (LightingArrow(bow) || LighterControler.IsBusy || bow._activeFireArrowGO) return false;
+            if (_holdStart == float.MaxValue) return "already lit with this press";
+            if (bow._player == null || bow._player.CurrentView != PlayerInventory.PlayerViews.World) return "not in world view";
+            if (LightingArrow(bow)) return "bow is already lighting the arrow";
+            if (LighterControler.IsBusy) return "lighter is busy";
+            if (bow._activeFireArrowGO) return "arrow is already burning";
             // Burning with no flame object happens when the VR hand destroyed the flame; allow relighting then.
             var active = ActiveAmmoBonus(bow);
-            if (active != ArrowUtil.NoBonus && active != ArrowBonus.BurningAmmo) return false;
-            if (!bow._player.Owns(bow._ammoItemId, false)) return false;
+            if (active != ArrowUtil.NoBonus && active != ArrowBonus.BurningAmmo) return $"bow's active arrow bonus is {active}";
+            if (!bow._player.Owns(bow._ammoItemId, false)) return "no arrows";
             var arrow = BowUtil.CurrentArrow(bow);
-            return arrow && arrow.ActiveBonus == ArrowBonus.BurningAmmo;
+            if (!arrow) return "no current arrow view";
+            if (arrow.ActiveBonus != ArrowBonus.BurningAmmo) return $"current arrow is not a cloth arrow ({Dbg.Props(arrow.Properties)})";
+            return null;
         }
 
-        private static void AttachFlameToHeldArrow(BowController bow)
+        private static bool AttachFlameToHeldArrow(BowController bow)
         {
             var flame = bow._activeFireArrowGO;
             var heldArrow = HeldVrArrow(bow);
-            if (!flame || !heldArrow) return;
+            if (!flame || !heldArrow) return false;
 
             var t = heldArrow.transform;
             var tip = t.position + t.forward * 0.3f;
@@ -105,6 +125,7 @@ namespace ArrowFixes
             flame.transform.SetParent(t, true);
             flame.transform.position = tip;
             flame.transform.rotation = t.rotation;
+            return true;
         }
 
         private static GameObject HeldVrArrow(BowController bow)

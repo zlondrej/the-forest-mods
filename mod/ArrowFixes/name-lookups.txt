@@ -25,3 +25,5 @@ TheForest.Items.Inventory.ItemProperties::ActiveBonusChanged
 TheForest.Items.Inventory.ItemProperties::set_ActiveBonusValue
 TheForest.Utils.Input::GetButtonDown
 ?TheForest.Utils.Input/Actions::Rotate
+TheForest.Items.Inventory.ItemProperties::set_ActiveBonus
+TheForest.Items.World.PickUp::Collect

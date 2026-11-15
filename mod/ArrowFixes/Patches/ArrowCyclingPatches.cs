@@ -105,22 +105,31 @@ namespace ArrowFixes
             current = BowUtil.CurrentArrow(bow);
             var actual = ArrowKey.Of(current ? current.Properties : null);
             if (actual != selected) SetSelectedBase(bowView, actual.Base); // none of the selected base left
+            Dbg.Log($"cycle: next arrow did not match selection {selected}; re-sorted, next arrow is now {actual}");
             UpdateArrowRenderer(bow);
         }
 
         private static void HandleRotate(BowController bow, InventoryItemView bowView)
         {
-            bool canCycle = !LocalPlayer.Create.Grabber.Target && LocalPlayer.MainCamTr.forward.y < -0.85f &&
-                            !LocalPlayer.Animator.GetBool("drawBowBool");
+            bool grabbing = LocalPlayer.Create.Grabber.Target;
+            float lookY = LocalPlayer.MainCamTr.forward.y;
+            bool drawing = LocalPlayer.Animator.GetBool("drawBowBool");
+            bool canCycle = !grabbing && lookY < -0.85f && !drawing;
             var selected = ArrowKey.Of(bowView.Properties);
             var next = canCycle ? NextAvailable(bow._ammoItemId, selected) : selected;
+            bool pressed = _rotatePressed();
+            if (pressed && Dbg.On)
+            {
+                Dbg.Log($"cycle: Rotate pressed. look-down={lookY:0.00} (needs < -0.85), grabbing={grabbing}, drawing={drawing}; " +
+                        $"selected {selected}, next {next}; carrying {Dbg.Arrows(bow._ammoItemId)}");
+            }
             if (next == selected)
             {
                 SetIcon(false);
                 return;
             }
             SetIcon(true);
-            if (!_rotatePressed()) return;
+            if (!pressed) return;
 
             LocalPlayer.Sfx.PlayWhoosh();
             SetActiveBowBonus(bow, next.Bonus);
@@ -128,6 +137,8 @@ namespace ArrowFixes
             SortByKey(bow._ammoItemId, next);
             UpdateArrowRenderer(bow);
             SetIcon(false);
+            var now = BowUtil.CurrentArrow(bow);
+            Dbg.Log($"cycle: switched to {next}; bow {Dbg.Props(bowView.Properties)}, next arrow {(now ? Dbg.Props(now.Properties) : "none")}");
         }
 
         private static void SetIcon(bool show)

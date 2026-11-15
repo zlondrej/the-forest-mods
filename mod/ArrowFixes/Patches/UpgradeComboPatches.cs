@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using HarmonyLib;
 using TheForest.Items;
 using TheForest.Items.Craft;
@@ -46,8 +47,13 @@ namespace ArrowFixes
             __state = null;
             if (bonuses == null || !Array.Exists(bonuses, b => b != null && (ArrowUtil.IsBase(b._type) || ArrowUtil.IsCoating(b._type))))
                 return;
+            Dbg.Log($"craft: {Dbg.ItemName(productItemId)} gets [{string.Join(", ", bonuses.Where(b => b != null).Select(b => b._type.ToString()).ToArray())}], batched={batched}");
             var cache = ItemViewsCache(__instance);
-            if (cache == null || !cache.TryGetValue(productItemId, out var view) || !view) return;
+            if (cache == null || !cache.TryGetValue(productItemId, out var view) || !view)
+            {
+                Dbg.Log("craft: no crafting view for the product, base not tracked");
+                return;
+            }
 
             __state = new List<KeyValuePair<InventoryItemView, ArrowBonus>>();
             // Mirrors which views ApplyWeaponStatsUpgrades touches for ammo bonuses.
@@ -64,6 +70,7 @@ namespace ArrowFixes
             {
                 __state.Add(new KeyValuePair<InventoryItemView, ArrowBonus>(view, ArrowUtil.GetBase(view.Properties)));
             }
+            Dbg.Log($"craft: {__state.Count} arrow(s) on the mat before: " + string.Join(", ", __state.Select(e => Dbg.Props(e.Key.Properties)).ToArray()));
         }
 
         private static void Postfix(List<KeyValuePair<InventoryItemView, ArrowBonus>> __state)
@@ -79,6 +86,7 @@ namespace ArrowFixes
                 else if (ArrowUtil.IsBase(p.ActiveBonus) || p.ActiveBonus == ArrowUtil.NoBonus)
                     p.ActiveBonusValue = 0f;
             }
+            Dbg.Log("craft: after: " + string.Join(", ", __state.Where(e => e.Key).Select(e => Dbg.Props(e.Key.Properties)).ToArray()));
         }
     }
 
@@ -98,9 +106,12 @@ namespace ArrowFixes
             var weapon = __instance.RightHand;
             if (!weapon || weapon.ItemCache == null) return;
             var arrow = BowUtil.CurrentArrow(__instance, weapon.ItemCache._ammoItemId);
+            if (Dbg.On && weapon.ItemCache._ammoItemId > 0)
+                Dbg.Log($"fire: {Dbg.ItemName(weapon.ItemCache._ammoItemId)} {(arrow ? Dbg.Props(arrow.Properties) : "(no arrow view)")}");
             if (!arrow || !ArrowUtil.IsCoating(arrow.ActiveBonus)) return;
             var b = ArrowUtil.GetBase(arrow.Properties);
             if (ArrowUtil.IsBase(b)) Override = b;
+            Dbg.Log($"fire: projectile base override = {Dbg.Name(b)}");
         }
 
         private static Exception Finalizer(Exception __exception)
@@ -116,7 +127,10 @@ namespace ArrowFixes
         private static void Prefix(ref ArrowBonus bonus)
         {
             if (FireBasePrefabPatch.Override.HasValue && ArrowUtil.IsCoating(bonus))
+            {
+                Dbg.Log($"fire: projectile prefab for {bonus} -> {FireBasePrefabPatch.Override.Value}");
                 bonus = FireBasePrefabPatch.Override.Value;
+            }
         }
     }
 
@@ -134,6 +148,7 @@ namespace ArrowFixes
             var b = arrow ? ArrowUtil.GetBase(arrow.Properties) : ArrowUtil.NoBonus;
             bool combo = arrow && ArrowUtil.IsCoating(arrow.ActiveBonus) && ArrowUtil.IsBase(b);
             Color? tint = combo ? ArrowVisualPatches.TintFor(arrow, arrow.ActiveBonus) : (Color?)null;
+            Dbg.Changed("bowRenderer", $"bow model: arrow {(arrow ? Dbg.Props(arrow.Properties) : "none")}, combo={combo}, tint={tint}");
             ArrowVisualPatches.SetTint(__instance._boneAmmoAnimationRenderer, tint);
             ArrowVisualPatches.SetTint(__instance._modernAmmoAnimationRenderer, tint);
             if (!combo) return;
