@@ -1,11 +1,13 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using ArrowFixes;
 
 // Usage: dotnet run --project scripts/ClothPreview -- <output dir>
-// Writes BoneArrowCloth.obj and ModernArrowCloth.obj in Unity mesh space (no axis mirroring).
+// Writes BoneArrowCloth.obj and ModernArrowCloth.obj in Unity mesh space (no axis mirroring),
+// and the arrow-type HUD icons as Icon_<Base>_<Coating>.png.
 var outDir = args.Length > 0 ? args[0] : throw new ArgumentException("Pass the output directory");
 Directory.CreateDirectory(outDir);
 foreach (var spec in new[] { ClothWrapSpecs.Bone, ClothWrapSpecs.Modern })
@@ -27,4 +29,58 @@ foreach (var spec in new[] { ClothWrapSpecs.Bone, ClothWrapSpecs.Modern })
     var path = Path.Combine(outDir, spec.Name + ".obj");
     File.WriteAllText(path, sb.ToString());
     Console.WriteLine($"{path}: {m.Positions.Length / 3} vertices, {m.Triangles.Length / 3} triangles");
+}
+
+const int iconSize = 152; // same as the game's arrow icon
+foreach (IconBase b in Enum.GetValues(typeof(IconBase)))
+foreach (IconCoating c in Enum.GetValues(typeof(IconCoating)))
+{
+    var path = Path.Combine(outDir, $"Icon_{b}_{c}.png");
+    Png.Write(path, ArrowIconPainter.Paint(b, c, iconSize), iconSize);
+    Console.WriteLine(path);
+}
+
+/// <summary>Minimal RGBA PNG writer (input rows bottom-first, as Unity textures).</summary>
+static class Png
+{
+    public static void Write(string path, byte[] rgbaBottomUp, int size)
+    {
+        var raw = new MemoryStream();
+        for (int y = size - 1; y >= 0; y--)
+        {
+            raw.WriteByte(0);
+            raw.Write(rgbaBottomUp, y * size * 4, size * 4);
+        }
+        var z = new MemoryStream();
+        using (var zs = new ZLibStream(z, CompressionLevel.Optimal, leaveOpen: true)) raw.WriteTo(zs);
+        using var f = File.Create(path);
+        f.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
+        var ihdr = new byte[13];
+        Be(ihdr, 0, size); Be(ihdr, 4, size); ihdr[8] = 8; ihdr[9] = 6;
+        Chunk(f, "IHDR", ihdr);
+        Chunk(f, "IDAT", z.ToArray());
+        Chunk(f, "IEND", Array.Empty<byte>());
+    }
+
+    private static void Chunk(Stream s, string type, byte[] data)
+    {
+        var len = new byte[4]; Be(len, 0, data.Length); s.Write(len);
+        var td = new byte[4 + data.Length];
+        Encoding.ASCII.GetBytes(type).CopyTo(td, 0); data.CopyTo(td, 4);
+        s.Write(td);
+        var crc = new byte[4]; Be(crc, 0, (int)Crc(td)); s.Write(crc);
+    }
+
+    private static void Be(byte[] b, int o, int v) { b[o] = (byte)(v >> 24); b[o + 1] = (byte)(v >> 16); b[o + 2] = (byte)(v >> 8); b[o + 3] = (byte)v; }
+
+    private static uint Crc(byte[] data)
+    {
+        uint c = 0xFFFFFFFF;
+        foreach (var b in data)
+        {
+            c ^= b;
+            for (int k = 0; k < 8; k++) c = (c & 1) != 0 ? 0xEDB88320 ^ (c >> 1) : c >> 1;
+        }
+        return c ^ 0xFFFFFFFF;
+    }
 }

@@ -36,4 +36,8 @@
     <Reference Include="bolt.user" HintPath="$(GameManaged)\bolt.user.dll" Private="false" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Badge shapes for the arrow-type HUD icons (ArrowIconPainter). -->
+    <EmbeddedResource Include="Icons\*.png" LogicalName="ArrowFixes.Icons.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>
