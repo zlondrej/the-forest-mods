@@ -1,0 +1,20 @@
+# Members ArrowFixes looks up by name at runtime (AccessTools / Traverse / reflection).
+# Checked against both builds by scripts/check-plugin.sh. Prefix '?' = may be absent in a build.
+TheForest.Items.Craft.CraftingCog::_itemViewsCache
+TheForest.Items.Inventory.InventoryItemView::_multiViews
+TheForest.Items.World.BowController::_currentAmmo
+TheForest.Items.World.BowController::_lightingArrow
+TheForest.Items.World.BowController::_activeAmmoBonus
+TheForest.Items.World.BowController::_arrowHandVr
+TheForest.Items.World.BowController::LightArrow
+TheForest.Items.World.BowController::Update
+TheForest.Items.World.BowController::UpdateArrowRenderer
+TheForest.Items.World.BowController::SetActiveBowBonus
+TheForest.Items.World.BowController::OnAmmoFired
+TheForest.Items.Inventory.PlayerInventory::FireRangedWeapon
+TheForest.Utils.Input::GetButton
+?TheForest.Utils.Input/Actions::Lighter
+?TheForest.VR.InteractionSystem.ArrowHand::FireArrow
+?TheForest.VR.InteractionSystem.ArrowHand::currentArrow
+?Valve.VR.InteractionSystem.ArrowHand::FireArrow
+?Valve.VR.InteractionSystem.ArrowHand::currentArrow
