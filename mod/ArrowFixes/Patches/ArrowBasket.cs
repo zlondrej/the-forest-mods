@@ -35,6 +35,9 @@ namespace ArrowFixes
         private static readonly MethodInfo PlayOneshot = AccessTools.Method(typeof(FMODCommon), "PlayOneshot", new[] { typeof(string), typeof(Transform) });
         private static Func<bool> _rotate, _take, _put;
 
+        /// <summary>The arrow basket the player is looking at (bow arrow cycling is off meanwhile: same Rotate button).</summary>
+        internal static ItemHolder Focused;
+
         private static bool Prepare()
         {
             _rotate = InputCompat.ButtonDown("Rotate");
@@ -129,6 +132,7 @@ namespace ArrowFixes
         private static void GrabEnterPostfix(ItemHolder __instance)
         {
             if (!IsArrowBasket(__instance)) return;
+            Focused = __instance;
             BasketVisuals.Refresh(__instance);
             if (!BoltNetwork.isClient || !__instance.entity || !__instance.entity.isAttached) return;
             // Ask the host for the slot list (no Target: a host without the mod ignores this).
@@ -142,7 +146,9 @@ namespace ArrowFixes
         [HarmonyPostfix]
         private static void GrabExitPostfix(ItemHolder __instance)
         {
-            if (IsArrowBasket(__instance)) BasketIcon.Hide();
+            if (!IsArrowBasket(__instance)) return;
+            BasketIcon.Hide();
+            if (Focused == __instance) Focused = null;
         }
 
         // ================================================================== authority (single player or host)

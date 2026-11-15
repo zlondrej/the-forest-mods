@@ -110,7 +110,7 @@ if (args.Length > 2)
             found = cur.Methods.Any(m => m.Name == name) || cur.Fields.Any(f => f.Name == name)
                     || cur.Properties.Any(p => p.Name == name) || cur.NestedTypes.Any(n => n.Name == name);
         }
-        if (!found) Fail(line);
+        if (!found && !optional) Fail(line);
     }
 }
 

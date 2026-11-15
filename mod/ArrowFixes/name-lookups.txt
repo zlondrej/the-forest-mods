@@ -33,3 +33,5 @@ ItemHolder::ItemCountChangedMP
 FMODCommon::PlayOneshot
 ?TheForest.Utils.Input/Actions::Take
 ?TheForest.Utils.Input/Actions::Craft
+TheForest.UI.ActionIconUISprite::_action
+?TheForest.UI.ActionIconUISprite::_vrAction

@@ -118,7 +118,8 @@ namespace ArrowFixes
             bool grabbing = LocalPlayer.Create.Grabber.Target;
             float lookY = LocalPlayer.MainCamTr.forward.y;
             bool drawing = LocalPlayer.Animator.GetBool("drawBowBool");
-            bool canCycle = !grabbing && lookY < -0.85f && !drawing;
+            bool atBasket = ArrowBasket.Focused; // the basket uses Rotate to pick its arrow type
+            bool canCycle = !grabbing && lookY < -0.85f && !drawing && !atBasket;
             var selected = ArrowKey.Of(bowView.Properties);
             var next = canCycle ? NextAvailable(bow._ammoItemId, selected) : selected;
             bool pressed = _rotatePressed();
