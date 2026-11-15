@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Install BepInEx (if missing), the ForestEntrypointFix patcher and the ArrowFixes plugin into The Forest. Works for
+# Install BepInEx (if missing), the ForestEntrypointFix patcher and the plugins into The Forest. Works for
 # TheForest.exe and TheForestVR.exe (both 64-bit, same folder, one shared BepInEx). TheForest32.exe is not supported
 # by this x64 BepInEx build.
 #
-#   scripts/install.sh              build + install
-#   scripts/install.sh --uninstall  remove the plugin and BepInEx (leaves game files untouched)
+#   scripts/install.sh              build + install all plugins
+#   scripts/install.sh VrFixes      build + install just these plugins
+#   scripts/install.sh --uninstall  remove the plugins and BepInEx (leaves game files untouched)
 set -euo pipefail
 
 GAME_DIR="${GAME_DIR:?Set GAME_DIR to The Forest install folder, e.g. export GAME_DIR='/path/to/steamapps/common/The Forest'}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BEPINEX_SRC="$ROOT/tools/downloads/BepInEx_win_x64_5.4.23.6"
-PLUGIN_DIR="$GAME_DIR/BepInEx/plugins/ArrowFixes"
+PLUGINS=()
+[[ "${1:-}" == "--uninstall" ]] || PLUGINS=("$@")
+[[ ${#PLUGINS[@]} -gt 0 ]] || PLUGINS=(ArrowFixes VrFixes)
 PATCHER_DIR="$GAME_DIR/BepInEx/patchers/ForestEntrypointFix"
 # Everything BepInEx adds to the game root (removed again by --uninstall).
 BEPINEX_ROOT_FILES=(winhttp.dll doorstop_config.ini .doorstop_version changelog.txt)
@@ -18,7 +21,7 @@ BEPINEX_ROOT_FILES=(winhttp.dll doorstop_config.ini .doorstop_version changelog.
 if [[ "${1:-}" == "--uninstall" ]]; then
   rm -rf "$GAME_DIR/BepInEx"
   for f in "${BEPINEX_ROOT_FILES[@]}"; do rm -f "$GAME_DIR/$f"; done
-  echo "Removed BepInEx and ArrowFixes from $GAME_DIR"
+  echo "Removed BepInEx and its plugins from $GAME_DIR"
   exit 0
 fi
 
@@ -37,7 +40,9 @@ mkdir -p "$PATCHER_DIR"
 cp "$ROOT/mod/ForestEntrypointFix/bin/Release/ForestEntrypointFix.dll" "$PATCHER_DIR/"
 echo "Installed ForestEntrypointFix to $PATCHER_DIR"
 
-dotnet build "$ROOT/mod/ArrowFixes" -c Release -nologo -v q -p:GameDir="$GAME_DIR"
-mkdir -p "$PLUGIN_DIR"
-cp "$ROOT/mod/ArrowFixes/bin/Release/ArrowFixes.dll" "$PLUGIN_DIR/"
-echo "Installed ArrowFixes to $PLUGIN_DIR"
+for plugin in "${PLUGINS[@]}"; do
+  dotnet build "$ROOT/mod/$plugin" -c Release -nologo -v q -p:GameDir="$GAME_DIR"
+  mkdir -p "$GAME_DIR/BepInEx/plugins/$plugin"
+  cp "$ROOT/mod/$plugin/bin/Release/$plugin.dll" "$GAME_DIR/BepInEx/plugins/$plugin/"
+  echo "Installed $plugin to $GAME_DIR/BepInEx/plugins/$plugin"
+done
