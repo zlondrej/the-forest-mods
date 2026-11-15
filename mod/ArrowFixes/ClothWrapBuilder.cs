@@ -21,7 +21,8 @@ namespace ArrowFixes
         /// <summary>
         /// Texture patches around the wrap. With more than one, each patch of each layer gets the cloth texture at its
         /// own angle (up to <see cref="UvTwist"/> degrees), so the weave and the frayed strip edges change direction
-        /// where the cloth goes over an edge, as if folded there. Patch borders are texture seams (duplicated vertices).
+        /// where the cloth goes over an edge, as if folded there. Patch borders are texture seams (duplicated vertices),
+        /// starting at the +X side.
         /// </summary>
         public int UvPatches = 1;
         public float UvTwist;
@@ -61,8 +62,9 @@ namespace ArrowFixes
             var uvRnd = new Random(s.Seed + 1000); // separate, so texture settings don't change the shape
             float len = s.Y1 - s.Y0;
             int patches = Math.Max(1, s.UvPatches);
-            // Patches start half a patch in, so their centres sit on the flat faces / edges of a blade (angle 0 = +X).
-            int shift = patches > 1 ? Around / (2 * patches) : 0;
+            // Patch borders start at angle 0 (+X); with 2 patches they sit on the two edges of a blade that is wide in X,
+            // so each flat face is one patch and the texture only turns where the cloth goes over an edge.
+            const int shift = 0;
 
             for (int layer = 0; layer < s.Layers; layer++)
             {

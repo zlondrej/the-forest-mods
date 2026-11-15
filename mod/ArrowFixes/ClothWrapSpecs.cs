@@ -24,8 +24,8 @@ namespace ArrowFixes
             HalfX = new[] { 0.0106f, 0.0106f, 0.0280f, 0.0330f, 0.0332f, 0.0293f, 0.0225f, 0.0171f, 0.0063f, 0.0058f },
             HalfZ = new[] { 0.0102f, 0.0102f, 0.0107f, 0.0119f, 0.0119f, 0.0103f, 0.0081f, 0.0065f, 0.0042f, 0.0022f },
             Thickness = 0.009f,
-            // The texture changes direction between the blade's faces and edges, like cloth folded around it.
-            UvPatches = 4, UvTwist = 50f,
+            // The texture changes direction at the blade's edges (one patch per face), like cloth folded around it.
+            UvPatches = 2, UvTwist = 50f,
             Seed = 1,
         };
 
