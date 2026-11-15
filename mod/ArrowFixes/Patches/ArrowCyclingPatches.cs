@@ -134,7 +134,7 @@ namespace ArrowFixes
                 SetIcon(false);
                 return;
             }
-            SetIcon(true, next);
+            SetIcon(true, selected);
             if (!pressed) return;
 
             LocalPlayer.Sfx.PlayWhoosh();
@@ -165,14 +165,14 @@ namespace ArrowFixes
             Dbg.Log("cycle: switched away from a lit arrow; flame put out, cloth kept");
         }
 
-        /// <summary>The "switch arrow type" prompt; while shown, its arrow icon is the type Rotate switches to.</summary>
-        private static void SetIcon(bool show, ArrowKey next = default(ArrowKey))
+        /// <summary>The "switch arrow type" prompt; while shown, its arrow icon is the currently selected type.</summary>
+        private static void SetIcon(bool show, ArrowKey current = default(ArrowKey))
         {
             var icon = Scene.HudGui ? Scene.HudGui.ToggleArrowBonusIcon : null;
             if (!icon) return;
             if (show)
             {
-                ArrowIconTextures.Swap(icon.GetComponent<UITexture>(), ArrowIconTextures.For(next), PromptOriginals);
+                ArrowIconTextures.Swap(icon.GetComponent<UITexture>(), ArrowIconTextures.For(current), PromptOriginals);
                 if (!icon.activeSelf) icon.SetActive(true);
                 _iconShownByUs = true;
             }
