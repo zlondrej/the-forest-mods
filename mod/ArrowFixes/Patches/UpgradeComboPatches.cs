@@ -165,8 +165,8 @@ namespace ArrowFixes
     }
 
     /// <summary>
-    /// Lighting puts the fire effect at the wooden arrow's position on the bow; move it to the tip of the bone/modern
-    /// model when that is the one shown.
+    /// Lighting puts the fire effect where the game's cloth wrap sits on the wooden arrow. On a bone/modern arrow, move
+    /// it by the same offset to the centre of that arrow's generated cloth wrap (<see cref="ClothWraps"/>).
     /// </summary>
     [HarmonyPatch(typeof(BowController), "LightArrow")]
     internal static class LitArrowFlameAlignPatch
@@ -175,14 +175,15 @@ namespace ArrowFixes
         {
             var flame = __instance._activeFireArrowGO;
             var arrow = BowUtil.CurrentArrow(__instance);
-            if (!flame || !arrow || !ArrowUtil.IsCoating(arrow.ActiveBonus)) return;
-            var model = BowArrowRendererPatch.ModelFor(__instance, ArrowUtil.GetBase(arrow.Properties));
-            if (!model) return;
-            var cloth = ArrowTipAlign.BowCloth(__instance);
-            var nearTip = cloth.Count > 0 ? cloth[0].position : flame.transform.position;
-            var shift = ArrowTipAlign.TipShift(__instance._ammoAnimationRenderer, model, nearTip);
+            if (!flame || !arrow || arrow.ActiveBonus != ArrowBonus.BurningAmmo) return;
+            var b = ArrowUtil.GetBase(arrow.Properties);
+            var model = BowArrowRendererPatch.ModelFor(__instance, b);
+            var from = ArrowTipAlign.WoodenClothCenter(__instance);
+            var to = model ? ClothWraps.Center(model.transform, b) : null;
+            if (!from.HasValue || !to.HasValue) return;
+            var shift = to.Value - from.Value;
             flame.transform.position += shift;
-            Dbg.Log($"align: flame moved {shift.magnitude:0.000} to the {model.name} tip");
+            Dbg.Log($"align: flame moved {shift.magnitude:0.000} to the centre of the {model.name} cloth");
         }
     }
 

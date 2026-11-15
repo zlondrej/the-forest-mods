@@ -20,6 +20,16 @@ namespace ArrowFixes
             @base == ArrowBonus.BoneAmmo ? ClothWrapSpecs.Bone :
             @base == ArrowBonus.ModernAmmo ? ClothWrapSpecs.Modern : null;
 
+        /// <summary>Centre of the generated wrap for <paramref name="base"/> on <paramref name="model"/>, in world space.</summary>
+        public static Vector3? Center(Transform model, ArrowBonus @base)
+        {
+            var spec = SpecFor(@base);
+            if (!model || spec == null) return null;
+            float y = (spec.Y0 + spec.Y1) / 2f;
+            ClothWrapBuilder.Shaft(spec, y, out float cx, out float cz, out _, out _);
+            return model.TransformPoint(new Vector3(cx, y, cz));
+        }
+
         /// <summary>Show the wrap on <paramref name="model"/> (creating it if needed) or hide it.</summary>
         public static void Set(Transform model, ArrowBonus @base, Material clothMaterial, bool show)
         {

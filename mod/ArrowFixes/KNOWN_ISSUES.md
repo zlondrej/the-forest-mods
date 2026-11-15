@@ -2,16 +2,16 @@
 
 ## Not yet tested in game
 
-None of the fixes have been played yet. They are only checked statically: the plugin builds, and `scripts/check-plugin.sh` confirms every game member it uses exists in both the flat-screen and VR builds. Please report anything that behaves differently from what is described below.
+Played briefly in VR only; the flat-screen build and multiplayer are only checked statically (the plugin builds, and `scripts/check-plugin.sh` confirms every game member it uses exists in both builds). Please report anything that behaves differently from what is described below. With `[Debug] VerboseLogging = true` in the plugin config, `BepInEx/LogOutput.log` records crafting, cycling, firing, pickups and lighting in detail.
 
 ## Gameplay
 
 - **Arrows changed before installing stay as they are.** Bone arrows that already turned into normal arrows can't be restored. Cloth or poison arrows crafted from bone/modern arrows before installing don't remember their base, so they stay wooden.
 - **One coating per arrow.** An arrow can be bone *or* modern, plus cloth *or* poison. Cloth and poison on the same arrow isn't possible.
-- **Arrow-type cycling order.** Looking down and pressing Rotate now treats each coating + base as its own type. The order is: plain, cloth, cloth bone, cloth modern, poison, poison bone, poison modern, bone, modern. Types you don't have are skipped.
+- **Arrow-type cycling order.** Looking down and pressing Rotate now treats each coating + base as its own type, grouped by arrow: wooden, wooden cloth, wooden poison, bone, bone cloth, bone poison, modern, modern cloth, modern poison. Types you don't have are skipped.
 - **Bone/modern fire arrows use a generated cloth wrap.** The game has a single cloth mesh, shaped for the wooden arrow, and it didn't fit the bone or modern models. The mod builds its own wrap for each (over the head on bone arrows, like the wooden one; behind the insert on modern arrows) and uses the game's cloth material. To check the shapes without the game, run `scripts/ClothPreview` and `scripts/render_cloth_preview.py` (see the top of the script).
 - **Fire/poison tint on bone/modern arrows.** Coated bone/modern arrows get the same color tint the game uses for coated wooden arrows (red for cloth, cyan-green for poison), applied to their own model.
-- **Fire and poison are moved to the tip on bone/modern arrows.** The game places them for the wooden arrow. On the bow, the flame is moved to the tip of the bone/modern model. On a fired modern arrow, which is longer, fire and poison are moved to the same spot relative to the tip as on a wooden one. The distance is measured from the models, so if an effect looks misplaced, this is where to look.
+- **Fire and poison are moved on bone/modern arrows.** The game places them for the wooden arrow. On the bow, the flame sits at the centre of the bone/modern arrow's cloth wrap, like it sits on the wooden arrow's cloth. On a fired modern arrow, which is longer, fire and poison are moved to the same spot relative to the tip as on a wooden one.
 
 ## Multiplayer
 
@@ -23,7 +23,7 @@ None of the fixes have been played yet. They are only checked statically: the pl
 ## VR
 
 - **Switching arrow type needs a steep look down.** As in vanilla, look down more than about 58° below the horizon and press Rotate (left trigger by default). The switch prompt may not show in VR; you hear a whoosh when it switches.
-- **Lighting is button-only.** Holding Lighter for 0.5 s lights the arrow. There is no lighter animation, and you don't need to hold the lighter in your hand.
+- **Lighting is button-only.** Holding Lighter for 0.5 s lights the arrow. There is no lighter animation, you don't need to hold the lighter in your hand, and with a cloth arrow on the bow the button doesn't take out the lighter.
 - **Lighting by touching a fire is still broken.** The game's own way of lighting an arrow by holding it to a fire is untouched. It still doesn't work while an arrow is nocked.
 
 ## Not fixed
@@ -35,7 +35,8 @@ None of the fixes have been played yet. They are only checked statically: the pl
 
 ## Behavior changes compared to vanilla
 
-- Switching arrow type while a cloth arrow is lit burns the cloth off. A bone/modern arrow now goes back to bone/modern instead of becoming a plain arrow.
+- Switching arrow type while a cloth arrow is lit burns the cloth off. A bone/modern arrow now goes back to bone/modern instead of becoming a plain arrow. This now also happens when switching to another cloth type (e.g. cloth bone to cloth modern); before, the flame moved over to the other arrow.
+- The crafting mat keeps arrow types apart. Clicking an arrow moves only arrows of exactly that type (e.g. cloth bone, not every cloth arrow) onto the mat, and taking arrows back leaves the other types on the mat. In vanilla a mixed mat could turn arrows into another type.
 - Firing a cloth or poison bone/modern arrow returns the bone/modern arrow when you pick it up. Vanilla returned a plain arrow.
 
 ## Install and compatibility

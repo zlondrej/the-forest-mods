@@ -31,18 +31,18 @@ namespace ArrowFixes
         public static bool operator !=(ArrowKey a, ArrowKey b) => !a.Equals(b);
         public override string ToString() => Base == ArrowUtil.NoBonus ? Bonus.ToString() : $"{Bonus}+{Base}";
 
-        /// <summary>Vanilla order (none, cloth, poison, bone, modern) with each coating split by base.</summary>
+        /// <summary>Grouped by arrow: wooden, bone, modern; each plain, then cloth (flaming), then poison.</summary>
         public static readonly ArrowKey[] CycleOrder =
         {
             new ArrowKey(ArrowUtil.NoBonus, ArrowUtil.NoBonus),
             new ArrowKey(ArrowBonus.BurningAmmo, ArrowUtil.NoBonus),
-            new ArrowKey(ArrowBonus.BurningAmmo, ArrowBonus.BoneAmmo),
-            new ArrowKey(ArrowBonus.BurningAmmo, ArrowBonus.ModernAmmo),
             new ArrowKey(ArrowBonus.PoisonnedAmmo, ArrowUtil.NoBonus),
-            new ArrowKey(ArrowBonus.PoisonnedAmmo, ArrowBonus.BoneAmmo),
-            new ArrowKey(ArrowBonus.PoisonnedAmmo, ArrowBonus.ModernAmmo),
             new ArrowKey(ArrowBonus.BoneAmmo, ArrowUtil.NoBonus),
+            new ArrowKey(ArrowBonus.BurningAmmo, ArrowBonus.BoneAmmo),
+            new ArrowKey(ArrowBonus.PoisonnedAmmo, ArrowBonus.BoneAmmo),
             new ArrowKey(ArrowBonus.ModernAmmo, ArrowUtil.NoBonus),
+            new ArrowKey(ArrowBonus.BurningAmmo, ArrowBonus.ModernAmmo),
+            new ArrowKey(ArrowBonus.PoisonnedAmmo, ArrowBonus.ModernAmmo),
         };
     }
 
@@ -60,6 +60,9 @@ namespace ArrowFixes
 
         private static readonly Action<BowController> UpdateArrowRenderer =
             AccessTools.MethodDelegate<Action<BowController>>(AccessTools.Method(typeof(BowController), "UpdateArrowRenderer"));
+
+        private static readonly AccessTools.FieldRef<BowController, ArrowBonus> ActiveAmmoBonus =
+            AccessTools.FieldRefAccess<BowController, ArrowBonus>("_activeAmmoBonus");
 
         private static Func<bool> _rotatePressed;
         private static bool _iconShownByUs;
@@ -133,6 +136,7 @@ namespace ArrowFixes
             if (!pressed) return;
 
             LocalPlayer.Sfx.PlayWhoosh();
+            BurnOffLitArrow(bow, next);
             SetActiveBowBonus(bow, next.Bonus);
             SetSelectedBase(bowView, next.Base);
             SortByKey(bow._ammoItemId, next);
@@ -140,6 +144,19 @@ namespace ArrowFixes
             SetIcon(false);
             var now = BowUtil.CurrentArrow(bow);
             Dbg.Log($"cycle: switched to {next}; bow {Dbg.Props(bowView.Properties)}, next arrow {(now ? Dbg.Props(now.Properties) : "none")}");
+        }
+
+        /// <summary>
+        /// Vanilla burns the cloth off a lit arrow when you switch to a type that isn't flaming. Switching between two
+        /// flaming types (e.g. bone -> modern) kept the flame and moved it onto the other arrow; treat it the same way:
+        /// the lit arrow loses its cloth (BowSwitchAwayFromLitArrowPatch keeps its bone/modern base) and the flame goes out.
+        /// </summary>
+        private static void BurnOffLitArrow(BowController bow, ArrowKey next)
+        {
+            if (!bow._activeFireArrowGO || next.Bonus != ArrowBonus.BurningAmmo) return; // other cases: vanilla handles
+            SetActiveBowBonus(bow, ArrowUtil.NoBonus); // vanilla burn-off path
+            if (ActiveAmmoBonus(bow) == ArrowBonus.BurningAmmo) ActiveAmmoBonus(bow) = ArrowUtil.NoBonus; // unlit again
+            Dbg.Log("cycle: switched away from a lit arrow; its cloth burned off");
         }
 
         private static void SetIcon(bool show)

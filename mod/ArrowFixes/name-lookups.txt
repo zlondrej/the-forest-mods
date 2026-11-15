@@ -22,3 +22,6 @@ TheForest.Utils.Input::GetButtonDown
 ?TheForest.Utils.Input/Actions::Rotate
 TheForest.Items.Inventory.ItemProperties::set_ActiveBonus
 TheForest.Items.World.PickUp::Collect
+TheForest.Items.Inventory.InventoryItemView::CombiningItemId
+TheForest.Items.Inventory.InventoryItemView::CombiningItemProperty
+TheForest.Items.Special.LighterControler::OnActivating

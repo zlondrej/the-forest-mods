@@ -38,6 +38,20 @@ namespace ArrowFixes
             _lighterPressed = InputCompat.Button("Lighter");
             harmony.Patch(AccessTools.Method(typeof(BowController), "Update"),
                 postfix: new HarmonyMethod(typeof(VrArrowLighting), nameof(BowUpdatePostfix)));
+            // The same button also takes out and lights the lighter; with a cloth arrow on the bow it should only
+            // light the arrow.
+            harmony.Patch(AccessTools.Method(typeof(LighterControler), "OnActivating"),
+                prefix: new HarmonyMethod(typeof(VrArrowLighting), nameof(LighterActivatingPrefix)));
+        }
+
+        private static bool LighterActivatingPrefix()
+        {
+            if (!ForestVR.Enabled || !(LocalPlayer.ActiveBurnableItem is BowController bow) || !bow || !bow.isActiveAndEnabled)
+                return true;
+            var arrow = BowUtil.CurrentArrow(bow);
+            if (!arrow || arrow.ActiveBonus != ArrowBonus.BurningAmmo) return true;
+            Dbg.Log("light: Lighter button used for the arrow; not taking out the lighter");
+            return false;
         }
 
         private static void BowUpdatePostfix(BowController __instance)

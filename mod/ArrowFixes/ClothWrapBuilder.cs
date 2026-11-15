@@ -161,7 +161,7 @@ namespace ArrowFixes
             else { tri.Add(a); tri.Add(c); tri.Add(b); }
         }
 
-        private static void Shaft(ClothWrapSpec s, float y, out float cx, out float cz, out float hx, out float hz)
+        internal static void Shaft(ClothWrapSpec s, float y, out float cx, out float cz, out float hx, out float hz)
         {
             var ys = s.StationY;
             int i = 0;

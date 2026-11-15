@@ -35,6 +35,10 @@ namespace ArrowFixes
                 typeof(BowArrowRendererPatch), typeof(BowSwitchAwayFromLitArrowPatch), typeof(OnAmmoFiredCleanupPatch),
                 typeof(CoatingEffectAlignPatch));
 
+            Apply(harmony, "CraftingMatArrowTypes",
+                "Crafting mat keeps arrow types apart: clicking e.g. a flaming bone arrow moves only flaming bone arrows, and taking arrows back leaves the others on the mat.",
+                typeof(CraftingMatPatches));
+
             Apply(harmony, "UpgradeComboCycling",
                 "Arrow-type cycling (look down + Rotate) treats e.g. flaming bone and flaming wooden arrows as separate types.",
                 typeof(ArrowCyclingPatches));
@@ -48,7 +52,7 @@ namespace ArrowFixes
                 typeof(SendArrowMpPatch), typeof(ReceiveModernArrowPatch), typeof(ApplyStuckArrowToDummyPatch));
 
             if (Config.Bind("Fixes", "VrLighterIgnitesArrow", true,
-                    "VR: holding the Lighter button ignites a cloth-wrapped arrow, also while nocked.").Value)
+                    "VR: holding the Lighter button ignites a cloth-wrapped arrow, also while nocked (without taking out the lighter).").Value)
             {
                 Try("VrLighterIgnitesArrow", () => VrArrowLighting.Apply(harmony));
             }
