@@ -173,4 +173,50 @@ namespace ArrowFixes
             if (ammo && ammo.ActiveBonus == ArrowUtil.NoBonus) ammo.Properties.ActiveBonusValue = 0f;
         }
     }
+
+    /// <summary>
+    /// OnAmmoFired attaches the fire / poison effect (a WeaponBonus trigger that applies Burn / Poison on contact) at
+    /// positions tuned for the wooden 'Arrow' prefab. 'ArrowBone' has the same geometry, but 'ArrowModern' is built
+    /// differently (its tip is ~0.8 units further ahead of the pivot), so the effect would trail far behind the tip and
+    /// may never touch the enemy before the arrow is destroyed (0.1s after a hit). Shift the effect so it sits at the
+    /// same position relative to the tip as on a wooden arrow.
+    /// </summary>
+    [HarmonyPatch(typeof(BowController), "OnAmmoFired")]
+    internal static class CoatingEffectAlignPatch
+    {
+        private static void Prefix(GameObject Ammo, out HashSet<Transform> __state)
+        {
+            __state = null;
+            if (!FireBasePrefabPatch.Override.HasValue || !Ammo) return;
+            __state = new HashSet<Transform>();
+            foreach (Transform child in Ammo.transform) __state.Add(child);
+        }
+
+        private static void Postfix(BowController __instance, GameObject Ammo, HashSet<Transform> __state)
+        {
+            if (__state == null || !Ammo) return;
+            var delta = TipDelta(__instance._ammoItemId, Ammo);
+            if (delta.sqrMagnitude < 1e-6f) return;
+            foreach (Transform child in Ammo.transform)
+            {
+                if (!__state.Contains(child)) child.position += delta;
+            }
+        }
+
+        /// <summary>Actual tip position minus where a wooden arrow's tip would be for the same projectile pose.</summary>
+        private static Vector3 TipDelta(int ammoItemId, GameObject projectile)
+        {
+            var item = ItemDatabase.ItemById(ammoItemId);
+            var wooden = item?._ammoPrefabs?.GetPrefabForBonus(ArrowUtil.NoBonus);
+            var woodenTip = wooden ? wooden.GetComponentInChildren<ArrowDamage>(true) : null;
+            var actualTip = projectile.GetComponentInChildren<ArrowDamage>(true);
+            if (!woodenTip || !actualTip) return Vector3.zero;
+
+            // Wooden tip offset from its root, in the root's rotation frame, at world scale.
+            var localOffset = wooden.InverseTransformPoint(woodenTip.transform.position);
+            var offset = Vector3.Scale(localOffset, wooden.localScale);
+            var expected = projectile.transform.position + projectile.transform.rotation * offset;
+            return actualTip.transform.position - expected;
+        }
+    }
 }

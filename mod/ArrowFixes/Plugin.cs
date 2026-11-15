@@ -25,7 +25,8 @@ namespace ArrowFixes
             Apply(harmony, "UpgradeCombos",
                 "Cloth (flaming) and poison upgrades keep the bone/modern base of an arrow.",
                 typeof(CraftComboPatch), typeof(FireBasePrefabPatch), typeof(PrefabForBonusPatch),
-                typeof(BowArrowRendererPatch), typeof(BowSwitchAwayFromLitArrowPatch), typeof(OnAmmoFiredCleanupPatch));
+                typeof(BowArrowRendererPatch), typeof(BowSwitchAwayFromLitArrowPatch), typeof(OnAmmoFiredCleanupPatch),
+                typeof(CoatingEffectAlignPatch));
 
             Apply(harmony, "MultiplayerStuckArrows",
                 "Multiplayer: bone/modern arrows stuck in enemies stay bone/modern for other players.",
