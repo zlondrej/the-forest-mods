@@ -18,6 +18,11 @@
     <BepInExCore Condition="'$(BepInExCore)' == ''">$(MSBuildThisFileDirectory)..\..\tools\downloads\BepInEx_win_x64_5.4.23.6\BepInEx\core</BepInExCore>
   </PropertyGroup>
 
+  <Target Name="RequireGameDir" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(GameDir)' == ''" Text="Set the GAME_DIR environment variable (or -p:GameDir=...) to The Forest's install folder." />
+    <Error Condition="!Exists('$(GameManaged)\Assembly-CSharp.dll')" Text="Assembly-CSharp.dll not found in '$(GameManaged)'. Check GAME_DIR." />
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
