@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Install BepInEx (if missing) and the ArrowFixes plugin into The Forest. Works for TheForest.exe and TheForestVR.exe
-# (both 64-bit, same folder). TheForest32.exe is not supported by this x64 BepInEx build.
+# Install BepInEx (if missing), the ForestEntrypointFix patcher and the ArrowFixes plugin into The Forest. Works for
+# TheForest.exe and TheForestVR.exe (both 64-bit, same folder, one shared BepInEx). TheForest32.exe is not supported
+# by this x64 BepInEx build.
 #
 #   scripts/install.sh              build + install
 #   scripts/install.sh --uninstall  remove the plugin and BepInEx (leaves game files untouched)
@@ -10,6 +11,7 @@ GAME_DIR="${GAME_DIR:?Set GAME_DIR to The Forest install folder, e.g. export GAM
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BEPINEX_SRC="$ROOT/tools/downloads/BepInEx_win_x64_5.4.23.6"
 PLUGIN_DIR="$GAME_DIR/BepInEx/plugins/ArrowFixes"
+PATCHER_DIR="$GAME_DIR/BepInEx/patchers/ForestEntrypointFix"
 # Everything BepInEx adds to the game root (removed again by --uninstall).
 BEPINEX_ROOT_FILES=(winhttp.dll doorstop_config.ini .doorstop_version changelog.txt)
 
@@ -28,6 +30,12 @@ if [[ ! -f "$GAME_DIR/winhttp.dll" ]]; then
   for f in "${BEPINEX_ROOT_FILES[@]}"; do cp "$BEPINEX_SRC/$f" "$GAME_DIR/"; done
   echo "Installed BepInEx 5.4.23.6"
 fi
+
+# Both game builds share this BepInEx install; the patcher makes BepInEx hook the right Unity assembly for each.
+dotnet build "$ROOT/mod/ForestEntrypointFix" -c Release -nologo -v q
+mkdir -p "$PATCHER_DIR"
+cp "$ROOT/mod/ForestEntrypointFix/bin/Release/ForestEntrypointFix.dll" "$PATCHER_DIR/"
+echo "Installed ForestEntrypointFix to $PATCHER_DIR"
 
 dotnet build "$ROOT/mod/ArrowFixes" -c Release -nologo -v q -p:GameDir="$GAME_DIR"
 mkdir -p "$PLUGIN_DIR"

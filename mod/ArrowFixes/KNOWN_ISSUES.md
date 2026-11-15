@@ -48,6 +48,7 @@ Played briefly in VR only; the flat-screen build and multiplayer are only checke
 ## Install and compatibility
 
 - **TheForest.exe and TheForestVR.exe only.** `TheForest32.exe` isn't supported, because the bundled BepInEx is the 64-bit build.
+- **Both builds share one BepInEx install.** The flat-screen game (Unity 5.6) and the VR game (Unity 2017.4) need BepInEx to hook a different Unity assembly, but BepInEx saves that choice in `BepInEx.cfg` for whichever build starts first, so the other build silently loaded no plugins. The small `ForestEntrypointFix` patcher (installed to `BepInEx/patchers`) sets it for the build that is starting. If the mod seems inactive, check that `BepInEx/LogOutput.log` was written by the build you played (its first line names `TheForest` or `TheForestVR`).
 - **Steam's "Verify integrity of game files" doesn't remove the mod.** BepInEx and the plugin are extra files, not changes to game files. Use `scripts/install.sh --uninstall` to remove them.
 - **Uninstalling is safe.** Coated bone/modern arrows then behave like vanilla coated wooden arrows. The stored base is ignored but kept, so it comes back if you reinstall.
 - **Build-specific code.** The plugin is compiled against the flat-screen build and finds the VR-only parts by name at runtime. After any game update, re-run `scripts/check-plugin.sh`.
