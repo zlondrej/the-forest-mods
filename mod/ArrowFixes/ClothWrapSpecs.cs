@@ -24,6 +24,11 @@ namespace ArrowFixes
             HalfX = new[] { 0.0106f, 0.0106f, 0.0280f, 0.0330f, 0.0332f, 0.0293f, 0.0225f, 0.0171f, 0.0063f, 0.0058f },
             HalfZ = new[] { 0.0102f, 0.0102f, 0.0107f, 0.0119f, 0.0119f, 0.0103f, 0.0081f, 0.0065f, 0.0042f, 0.0022f },
             Thickness = 0.009f,
+            // Pulled flat around the blade and creased, like the game's wrap on the wooden arrowhead.
+            Roundness = 1.25f,
+            Folds = 6, FoldDepth = 0.008f, FoldWidth = 0.012f,
+            Wobble = 0.11f, EdgeThickness = 0.6f,
+            Layers = 2, Around = 16, Along = 7,
             Seed = 1,
         };
 
