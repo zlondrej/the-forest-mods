@@ -220,7 +220,7 @@ namespace ArrowFixes
         /// Same as PlayerInventory.SortInventoryViewsByBonus, but by full key: moves non-matching owned arrows to the
         /// front, so the arrow fired next (the last owned one) matches the selection when possible.
         /// </summary>
-        private static void SortByKey(int ammoItemId, ArrowKey key)
+        internal static void SortByKey(int ammoItemId, ArrowKey key)
         {
             if (!LocalPlayer.Inventory.InventoryItemViewsCache.TryGetValue(ammoItemId, out var list) || list == null) return;
             int moved = 0;

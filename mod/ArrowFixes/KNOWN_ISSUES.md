@@ -13,6 +13,13 @@ Played briefly in VR only; the flat-screen build and multiplayer are only checke
 - **Fire/poison tint on bone/modern arrows.** Coated bone/modern arrows get the same color tint the game uses for coated wooden arrows (red for cloth, cyan-green for poison), applied to their own model.
 - **Fire and poison are moved on bone/modern arrows.** The game places them for the wooden arrow. On the bow, the flame sits at the centre of the bone/modern arrow's cloth wrap, like it sits on the wooden arrow's cloth. On a fired modern arrow, which is longer, fire and poison are moved to the same spot relative to the tip as on a wooden one.
 
+## Arrow basket
+
+- **Choosing the type.** Looking at an arrow basket, Rotate cycles through the arrow types you carry and the types in the basket; the selected type's icon is shown next to the take/put prompt. Put puts in an arrow of that type (if you carry one), take takes one out (if the basket has one). The icon's position next to the prompt is untested and may need adjusting.
+- **Arrows in the basket show their type** (model, cloth, tint). Baskets you haven't looked at yet update once your inventory is loaded.
+- **Multiplayer needs the mod on the host.** The host keeps the basket's arrow types and saves them. Players with the mod use typed baskets as soon as the host answers (when they first look at a basket); with a host without the mod, the basket works as in vanilla (one generic arrow type). Players without the mod can still use a basket the vanilla way; what they put in counts as plain arrows, and they take out plain arrows. Dedicated servers need the mod installed too.
+- **Arrows put in before installing** count as plain arrows, unless the game had kept their type (single player).
+
 ## Multiplayer
 
 - **Everyone needs the mod for the multiplayer fixes.**
@@ -31,7 +38,6 @@ Played briefly in VR only; the flat-screen build and multiplayer are only checke
 - **Arrows can occasionally gain an upgrade.** An emptied inventory slot keeps its last upgrade. If an arrow is later added without upgrade information (for example a freshly crafted one), it can appear as bone, modern or cloth. Clearing the slot when it empties would wipe the upgrade of arrows moved onto the crafting mat, so this is left as in vanilla.
 - **Arrows stuck in enemies disappear after loading a save.** Vanilla behavior.
 - **Crossbow bolts are not touched.**
-- **The arrow basket holds one arrow type at a time.** You can't choose which type to put in or take out. Not looked into yet.
 
 ## Behavior changes compared to vanilla
 

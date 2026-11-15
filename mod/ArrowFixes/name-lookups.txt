@@ -25,3 +25,11 @@ TheForest.Items.World.PickUp::Collect
 TheForest.Items.Inventory.InventoryItemView::CombiningItemId
 TheForest.Items.Inventory.InventoryItemView::CombiningItemProperty
 TheForest.Items.Special.LighterControler::OnActivating
+ItemHolder::Update
+ItemHolder::GrabEnter
+ItemHolder::GrabExit
+ItemHolder::OnDeserialized
+ItemHolder::ItemCountChangedMP
+FMODCommon::PlayOneshot
+?TheForest.Utils.Input/Actions::Take
+?TheForest.Utils.Input/Actions::Craft

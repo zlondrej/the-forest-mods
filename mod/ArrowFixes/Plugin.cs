@@ -3,6 +3,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using UnityEngine;
 
 namespace ArrowFixes
 {
@@ -39,6 +40,10 @@ namespace ArrowFixes
                 "Crafting mat keeps arrow types apart: clicking e.g. a flaming bone arrow moves only flaming bone arrows, and taking arrows back leaves the others on the mat.",
                 typeof(CraftingMatPatches));
 
+            _basketTypes = Apply(harmony, "ArrowBasketTypes",
+                "Arrow basket: Rotate picks the arrow type to put in / take out (shown as an icon at the prompt), and the arrows in the basket show their type. Multiplayer: the host and players need the mod; with a host without it the basket works as in vanilla.",
+                typeof(ArrowBasket));
+
             Apply(harmony, "UpgradeComboCycling",
                 "Arrow-type cycling (look down + Rotate) treats e.g. flaming bone and flaming wooden arrows as separate types.",
                 typeof(ArrowCyclingPatches));
@@ -58,14 +63,25 @@ namespace ArrowFixes
             }
         }
 
-        private void Apply(Harmony harmony, string key, string description, params Type[] patchClasses)
+        private bool _basketTypes;
+        private float _nextTick;
+
+        private void Update()
+        {
+            if (!_basketTypes || Time.unscaledTime < _nextTick) return;
+            _nextTick = Time.unscaledTime + 1f;
+            try { BasketVisuals.Tick(); }
+            catch (Exception e) { Log.LogError($"ArrowBasketTypes: {e}"); _basketTypes = false; }
+        }
+
+        private bool Apply(Harmony harmony, string key, string description, params Type[] patchClasses)
         {
             if (!Config.Bind("Fixes", key, true, description).Value)
             {
                 Log.LogInfo($"{key}: disabled in config");
-                return;
+                return false;
             }
-            Try(key, () =>
+            return Try(key, () =>
             {
                 foreach (var patchClass in patchClasses)
                 {
@@ -87,16 +103,18 @@ namespace ArrowFixes
                 Dbg.Log($"{patchClass.Name} patched {method.DeclaringType?.Name}.{method.Name}");
         }
 
-        private static void Try(string key, Action apply)
+        private static bool Try(string key, Action apply)
         {
             try
             {
                 apply();
                 Log.LogInfo($"{key}: applied");
+                return true;
             }
             catch (Exception e)
             {
                 Log.LogError($"{key}: failed to apply, fix is inactive. {e}");
+                return false;
             }
         }
     }
