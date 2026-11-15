@@ -8,15 +8,22 @@ namespace ArrowFixes
     /// </summary>
     internal static class ClothWrapSpecs
     {
-        /// <summary>Bone arrow: round shaft (radius ~0.0105) up to the flat blade, whose base is at y ~0.43.</summary>
+        /// <summary>
+        /// Bone arrow: round shaft (radius ~0.0105) up to the flat blade (base at y ~0.43, point at 0.637). Like the
+        /// game's wrap on the wooden arrow, it covers the head and a bit of shaft behind it, leaving the point free.
+        /// The blade stations follow its width (x) and thickness (z); the wrap widens just before the blade so the
+        /// barbs at its base stay covered.
+        /// </summary>
         public static readonly ClothWrapSpec Bone = new ClothWrapSpec
         {
             Name = "BoneArrowCloth",
-            Y0 = 0.28f, Y1 = 0.44f,
-            StationY = new[] { 0.25f, 0.46f },
-            CenterX = new[] { 0.0160f, 0.0160f }, CenterZ = new[] { -0.0015f, -0.0015f },
-            HalfX = new[] { 0.0106f, 0.0106f }, HalfZ = new[] { 0.0102f, 0.0102f },
-            Bulk = 1.0f,
+            Y0 = 0.36f, Y1 = 0.59f,
+            StationY = new[] { 0.25f, 0.415f, 0.427f, 0.4375f, 0.4625f, 0.4875f, 0.5125f, 0.5375f, 0.5625f, 0.5875f, 0.6125f },
+            CenterX = new[] { 0.0160f, 0.0160f, 0.0189f, 0.0189f, 0.0176f, 0.0165f, 0.0193f, 0.0160f, 0.0196f, 0.0144f, 0.0199f },
+            CenterZ = new[] { -0.0015f, -0.0015f, -0.0015f, -0.0015f, -0.0015f, -0.0012f, -0.0007f, -0.0015f, -0.0012f, -0.0019f, -0.0013f },
+            HalfX = new[] { 0.0106f, 0.0106f, 0.0470f, 0.0460f, 0.0405f, 0.0332f, 0.0293f, 0.0225f, 0.0171f, 0.0063f, 0.0058f },
+            HalfZ = new[] { 0.0102f, 0.0102f, 0.0107f, 0.0107f, 0.0119f, 0.0119f, 0.0103f, 0.0081f, 0.0065f, 0.0042f, 0.0022f },
+            Thickness = 0.009f,
             Seed = 1,
         };
 
@@ -28,7 +35,7 @@ namespace ArrowFixes
             StationY = new[] { -1.177f, 1.365f },
             CenterX = new[] { 0f, 0f }, CenterZ = new[] { -0.0019f, 0f },
             HalfX = new[] { 0.0079f, 0.0114f }, HalfZ = new[] { 0.0070f, 0.0114f },
-            Bulk = 0.7f,
+            Thickness = 0.008f,
             Seed = 2,
         };
     }

@@ -14,7 +14,7 @@ namespace ArrowFixes
         public float[] StationY;           // ascending
         public float[] CenterX, CenterZ;   // shaft centre at each station
         public float[] HalfX, HalfZ;       // shaft half-widths at each station
-        public float Bulk;                 // extra radius of the outermost layer, as a multiple of the shaft half-width
+        public float Thickness;            // extra radius of the outermost layer (mesh units)
         public float Wobble = 0.07f;       // how much the band edges spiral, as a fraction of the wrap length
         public int Layers = 3;
         public int Seed;
@@ -50,7 +50,6 @@ namespace ArrowFixes
             var tri = new List<int>();
             var rnd = new Random(s.Seed);
             float len = s.Y1 - s.Y0;
-            float shaft = Math.Max(Max(s.HalfX), Max(s.HalfZ));
 
             for (int layer = 0; layer < s.Layers; layer++)
             {
@@ -58,7 +57,7 @@ namespace ArrowFixes
                 // Outer layers are shorter and sit a little further forward, which gives the wrap a lumpy profile.
                 float b0 = s.Y0 + len * 0.10f * layer;
                 float b1 = s.Y1 - len * 0.06f * layer;
-                float thick = shaft * s.Bulk * (0.45f + 0.55f * f);
+                float thick = s.Thickness * (0.45f + 0.55f * f);
                 float phase = (float)(rnd.NextDouble() * Math.PI * 2);
                 float p1 = (float)(rnd.NextDouble() * Math.PI * 2), p2 = (float)(rnd.NextDouble() * Math.PI * 2);
                 float vOffset = (float)rnd.NextDouble();
@@ -135,12 +134,5 @@ namespace ArrowFixes
 
         private static float Lerp(float a, float b, float t) => a + (b - a) * t;
         private static float Clamp01(float v) => v < 0f ? 0f : v > 1f ? 1f : v;
-
-        private static float Max(float[] v)
-        {
-            float m = 0f;
-            foreach (var x in v) m = Math.Max(m, x);
-            return m;
-        }
     }
 }
