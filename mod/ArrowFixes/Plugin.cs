@@ -22,7 +22,7 @@ namespace ArrowFixes
                 "Write detailed [debug] lines to BepInEx/LogOutput.log (crafting, arrow cycling, lighting, every arrow upgrade change).").Value;
             if (Dbg.On)
             {
-                Try("VerboseLogging", () => harmony.CreateClassProcessor(typeof(DebugBonusChangePatches)).Patch());
+                Try("VerboseLogging", () => PatchClass(harmony, typeof(DebugBonusChangePatches)));
             }
 
             Apply(harmony, "BoneArrowPickup",
@@ -40,8 +40,8 @@ namespace ArrowFixes
                 typeof(ArrowCyclingPatches));
 
             Apply(harmony, "UpgradeComboVisuals",
-                "Cloth/poison bone and modern arrows show their own model with the cloth wrap and fire/poison tint.",
-                typeof(ArrowVisualPatches));
+                "Cloth/poison bone and modern arrows show their own model with the cloth wrap and fire/poison tint; cloth wrap and flame sit at the tip of the bone/modern model.",
+                typeof(ArrowVisualPatches), typeof(LitArrowFlameAlignPatch));
 
             Apply(harmony, "MultiplayerStuckArrows",
                 "Multiplayer: bone/modern arrows stuck in enemies stay bone/modern for other players.",
@@ -65,9 +65,22 @@ namespace ArrowFixes
             {
                 foreach (var patchClass in patchClasses)
                 {
-                    harmony.CreateClassProcessor(patchClass).Patch();
+                    PatchClass(harmony, patchClass);
                 }
             });
+        }
+
+        /// <summary>
+        /// Patch one class; a class that patches nothing is an error (e.g. HarmonyX silently skips classes without a
+        /// class-level [HarmonyPatch] attribute).
+        /// </summary>
+        internal static void PatchClass(Harmony harmony, Type patchClass)
+        {
+            var patched = harmony.CreateClassProcessor(patchClass).Patch();
+            if (patched == null || patched.Count == 0)
+                throw new InvalidOperationException($"{patchClass.Name} patched no methods");
+            foreach (var method in patched)
+                Dbg.Log($"{patchClass.Name} patched {method.DeclaringType?.Name}.{method.Name}");
         }
 
         private static void Try(string key, Action apply)

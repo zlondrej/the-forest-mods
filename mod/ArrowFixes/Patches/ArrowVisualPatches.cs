@@ -15,8 +15,10 @@ namespace ArrowFixes
     ///  - ActiveBonusListener(cloth=10) shows the separate 'ArrowCloth' mesh;
     ///  - ActiveBonusListenerMat tints the wooden mesh: cloth = red, poison = cyan-green (same texture, _Color only).
     /// All of them match a single ActiveBonus, so a coated bone/modern arrow looked like a coated wooden one.
-    /// Here a coated arrow matches both its coating and its base, and the base mesh gets the coating's tint.
+    /// Here a coated arrow matches both its coating and its base, and the base mesh gets the coating's tint. The cloth
+    /// wrap mesh is shaped for the wooden arrow, so it stays hidden on bone/modern models.
     /// </summary>
+    [HarmonyPatch] // class-level attribute required, or the class processor skips the method patches
     internal static class ArrowVisualPatches
     {
         private static readonly AccessTools.FieldRef<ItemProperties, Action<ArrowBonus>> ActiveBonusChangedEvent =
@@ -45,7 +47,9 @@ namespace ArrowFixes
                 return true;
             }
 
-            bool flag = __instance._bonusToActivate == p.ActiveBonus || __instance._bonusToActivate == b;
+            // The cloth wrap mesh is shaped for the wooden arrow: leave it off on bone/modern models (the tint shows the coating).
+            bool flag = __instance._bonusToActivate == b ||
+                        (__instance._bonusToActivate == p.ActiveBonus && __instance._bonusToActivate != ArrowBonus.BurningAmmo);
             if (__instance._inverse) flag = !flag;
             Apply(__instance._targetGOs, __instance._targetObjects, flag);
             if (targetIsBase) SetTint(__instance._targetGOs, __instance._targetObjects, flag ? TintFor(view, p.ActiveBonus) : (Color?)null);

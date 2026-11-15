@@ -136,8 +136,7 @@ namespace ArrowFixes
 
     /// <summary>
     /// Show the bone/modern arrow model on the bow for coated bone/modern arrows, tinted like the vanilla cloth/poison
-    /// arrow. The cloth mesh ('ArrowCloth', child of the wooden arrow object) is switched by the bow's own bonus
-    /// listener and stays visible because only the wooden renderer is disabled here.
+    /// arrow. The cloth wrap mesh is shaped for the wooden arrow, so it is hidden on bone/modern models.
     /// </summary>
     [HarmonyPatch(typeof(BowController), "UpdateArrowRenderer")]
     internal static class BowArrowRendererPatch
@@ -151,10 +150,37 @@ namespace ArrowFixes
             Dbg.Changed("bowRenderer", $"bow model: arrow {(arrow ? Dbg.Props(arrow.Properties) : "none")}, combo={combo}, tint={tint}");
             ArrowVisualPatches.SetTint(__instance._boneAmmoAnimationRenderer, tint);
             ArrowVisualPatches.SetTint(__instance._modernAmmoAnimationRenderer, tint);
+            foreach (var cloth in ArrowTipAlign.BowCloth(__instance)) ArrowTipAlign.SetHidden(cloth, combo);
             if (!combo) return;
             if (__instance._ammoAnimationRenderer) __instance._ammoAnimationRenderer.enabled = false;
             if (__instance._boneAmmoAnimationRenderer) __instance._boneAmmoAnimationRenderer.enabled = b == ArrowBonus.BoneAmmo;
             if (__instance._modernAmmoAnimationRenderer) __instance._modernAmmoAnimationRenderer.enabled = b == ArrowBonus.ModernAmmo;
+        }
+
+        internal static Renderer ModelFor(BowController bow, ArrowBonus b) =>
+            b == ArrowBonus.BoneAmmo ? bow._boneAmmoAnimationRenderer :
+            b == ArrowBonus.ModernAmmo ? bow._modernAmmoAnimationRenderer : null;
+    }
+
+    /// <summary>
+    /// Lighting puts the fire effect at the wooden arrow's position on the bow; move it to the tip of the bone/modern
+    /// model when that is the one shown.
+    /// </summary>
+    [HarmonyPatch(typeof(BowController), "LightArrow")]
+    internal static class LitArrowFlameAlignPatch
+    {
+        private static void Postfix(BowController __instance)
+        {
+            var flame = __instance._activeFireArrowGO;
+            var arrow = BowUtil.CurrentArrow(__instance);
+            if (!flame || !arrow || !ArrowUtil.IsCoating(arrow.ActiveBonus)) return;
+            var model = BowArrowRendererPatch.ModelFor(__instance, ArrowUtil.GetBase(arrow.Properties));
+            if (!model) return;
+            var cloth = ArrowTipAlign.BowCloth(__instance);
+            var nearTip = cloth.Count > 0 ? cloth[0].position : flame.transform.position;
+            var shift = ArrowTipAlign.TipShift(__instance._ammoAnimationRenderer, model, nearTip);
+            flame.transform.position += shift;
+            Dbg.Log($"align: flame moved {shift.magnitude:0.000} to the {model.name} tip");
         }
     }
 

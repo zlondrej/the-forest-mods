@@ -76,6 +76,7 @@ namespace ArrowFixes
     }
 
     /// <summary>Debug only: log every arrow-related bonus change with the game code that made it.</summary>
+    [HarmonyPatch] // class-level attribute required, or the class processor skips the method patches
     internal static class DebugBonusChangePatches
     {
         private static bool IsArrowType(ArrowBonus b) => ArrowUtil.IsBase(b) || ArrowUtil.IsCoating(b);

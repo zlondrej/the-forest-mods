@@ -52,6 +52,7 @@ namespace ArrowFixes
     /// view's ActiveBonus as before, plus the selected base in its ActiveBonusValue (the crafting "set ammo on bow"
     /// upgrade already copies an arrow's properties, value included, onto the bow).
     /// </summary>
+    [HarmonyPatch] // class-level attribute required, or the class processor skips the method patches
     internal static class ArrowCyclingPatches
     {
         private static readonly Action<BowController, ArrowBonus> SetActiveBowBonus =
