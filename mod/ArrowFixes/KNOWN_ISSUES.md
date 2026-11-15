@@ -35,7 +35,7 @@ Played briefly in VR only; the flat-screen build and multiplayer are only checke
 
 ## Behavior changes compared to vanilla
 
-- Switching arrow type while a cloth arrow is lit burns the cloth off. A bone/modern arrow now goes back to bone/modern instead of becoming a plain arrow. Switching to another cloth type (e.g. cloth bone to cloth modern) just puts the flame out and the lit arrow keeps its cloth; before, the flame moved over to the other arrow.
+- Switching arrow type while a cloth arrow is lit just puts the flame out; the arrow keeps its cloth and can be lit again, like when you put the bow away. In vanilla the cloth burned off (the arrow became a plain arrow), and switching between two cloth types would have moved the flame to the other arrow. If something else still burns the cloth off a lit bone/modern arrow, it goes back to bone/modern instead of becoming a plain arrow.
 - The crafting mat keeps arrow types apart. Clicking an arrow moves only arrows of exactly that type (e.g. cloth bone, not every cloth arrow) onto the mat, and taking arrows back leaves the other types on the mat. In vanilla a mixed mat could turn arrows into another type.
 - Firing a cloth or poison bone/modern arrow returns the bone/modern arrow when you pick it up. Vanilla returned a plain arrow.
 

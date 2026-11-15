@@ -147,14 +147,14 @@ namespace ArrowFixes
         }
 
         /// <summary>
-        /// Switching between two flaming types (e.g. bone -> modern) kept the flame and moved it onto the other arrow.
-        /// Put the flame out instead; the lit arrow keeps its cloth and can be lit again. (Switching from a lit arrow to
-        /// a type that isn't flaming still burns its cloth off, as in vanilla.)
+        /// Switching arrow type while a cloth arrow is lit: put the flame out, and the lit arrow keeps its cloth so it
+        /// can be lit again, like when the bow is put away. Vanilla burned the cloth off when switching to a type that
+        /// isn't flaming, and between two flaming types (e.g. bone -> modern) the flame moved onto the other arrow.
         /// </summary>
         private static void PutOutLitArrow(BowController bow, ArrowKey next)
         {
             var flame = bow._activeFireArrowGO;
-            if (!flame || next.Bonus != ArrowBonus.BurningAmmo) return; // other cases: vanilla handles
+            if (!flame) return;
             UnityEngine.Object.Destroy(flame.gameObject);
             bow._activeFireArrowGO = null; // also keeps vanilla SetActiveBowBonus from burning the cloth off
             LocalPlayer.Inventory.IsWeaponBurning = false;
