@@ -66,6 +66,7 @@ namespace ArrowFixes
 
         private static Func<bool> _rotatePressed;
         private static bool _iconShownByUs;
+        private static readonly Dictionary<UITexture, Texture> PromptOriginals = new Dictionary<UITexture, Texture>();
 
         /// <summary>Called by Harmony before patching (HarmonyPrepare).</summary>
         private static bool Prepare()
@@ -133,7 +134,7 @@ namespace ArrowFixes
                 SetIcon(false);
                 return;
             }
-            SetIcon(true);
+            SetIcon(true, next);
             if (!pressed) return;
 
             LocalPlayer.Sfx.PlayWhoosh();
@@ -164,12 +165,14 @@ namespace ArrowFixes
             Dbg.Log("cycle: switched away from a lit arrow; flame put out, cloth kept");
         }
 
-        private static void SetIcon(bool show)
+        /// <summary>The "switch arrow type" prompt; while shown, its arrow icon is the type Rotate switches to.</summary>
+        private static void SetIcon(bool show, ArrowKey next = default(ArrowKey))
         {
             var icon = Scene.HudGui ? Scene.HudGui.ToggleArrowBonusIcon : null;
             if (!icon) return;
             if (show)
             {
+                ArrowIconTextures.Swap(icon.GetComponent<UITexture>(), ArrowIconTextures.For(next), PromptOriginals);
                 if (!icon.activeSelf) icon.SetActive(true);
                 _iconShownByUs = true;
             }
