@@ -14,7 +14,8 @@ namespace ArrowFixes
     /// VR: the bow only reads the Lighter button outside VR (`... && !ForestVR.Enabled`). The VR-only path
     /// (VRLightFire trigger on the animated bow's arrow shaft) requires drawBowBool == false, which the VR Longbow
     /// sets to true whenever an arrow is nocked, and that trigger is not where the VR arrow is held.
-    /// Here: in VR, holding Lighter for 0.5s lights the current cloth arrow (nocked or not). The flame goes where the
+    /// Here: in VR, holding Lighter for 0.5s lights the current cloth arrow (nocked or not), and a short press takes out
+    /// the lighter as before (with a cloth arrow on the bow it comes out on release, not on press). The flame goes where the
     /// game puts it: on the bow's animated arrow, which in VR follows the arrow in your hand (BowController.LateUpdate),
     /// and is moved onto the projectile when it is fired (OnAmmoFired).
     /// </summary>
@@ -30,28 +31,50 @@ namespace ArrowFixes
 
         private static readonly MethodInfo LightArrowMethod = AccessTools.Method(typeof(BowController), "LightArrow");
 
+        private static readonly MethodInfo LighterOnActivating = AccessTools.Method(typeof(LighterControler), "OnActivating");
+
         private static Func<bool> _lighterPressed;
         private static float _holdStart = -1f;
+        private static LighterControler _pendingLighter; // lighter held back on button-down, taken out on a short press
+        private static bool _allowLighter;
 
         public static void Apply(Harmony harmony)
         {
             _lighterPressed = InputCompat.Button("Lighter");
             harmony.Patch(AccessTools.Method(typeof(BowController), "Update"),
                 postfix: new HarmonyMethod(typeof(VrArrowLighting), nameof(BowUpdatePostfix)));
-            // The same button also takes out and lights the lighter; with a cloth arrow on the bow it should only
-            // light the arrow.
-            harmony.Patch(AccessTools.Method(typeof(LighterControler), "OnActivating"),
+            // The same button takes out the lighter as soon as it is pressed. With a cloth arrow on the bow, wait for
+            // the release instead: a short press takes out the lighter, holding only lights the arrow.
+            harmony.Patch(LighterOnActivating,
                 prefix: new HarmonyMethod(typeof(VrArrowLighting), nameof(LighterActivatingPrefix)));
         }
 
-        private static bool LighterActivatingPrefix()
+        private static bool LighterActivatingPrefix(LighterControler __instance)
         {
-            if (!ForestVR.Enabled || !(LocalPlayer.ActiveBurnableItem is BowController bow) || !bow || !bow.isActiveAndEnabled)
+            if (_allowLighter || !ForestVR.Enabled || !(LocalPlayer.ActiveBurnableItem is BowController bow) || !bow || !bow.isActiveAndEnabled)
                 return true;
             var arrow = BowUtil.CurrentArrow(bow);
             if (!arrow || arrow.ActiveBonus != ArrowBonus.BurningAmmo) return true;
-            Dbg.Log("light: Lighter button used for the arrow; not taking out the lighter");
+            _pendingLighter = __instance;
+            Dbg.Log("light: Lighter pressed with a cloth arrow; lighter only comes out on a short press");
             return false;
+        }
+
+        private static void TakeOutPendingLighter()
+        {
+            var lighter = _pendingLighter;
+            _pendingLighter = null;
+            if (!lighter) return;
+            _allowLighter = true;
+            try
+            {
+                LighterOnActivating.Invoke(lighter, null);
+                Dbg.Log("light: short press, taking out the lighter");
+            }
+            finally
+            {
+                _allowLighter = false;
+            }
         }
 
         private static void BowUpdatePostfix(BowController __instance)
@@ -60,7 +83,13 @@ namespace ArrowFixes
 
             if (!_lighterPressed())
             {
-                if (_holdStart >= 0f) Dbg.Log("light: Lighter released");
+                if (_holdStart >= 0f)
+                {
+                    bool shortPress = _holdStart != float.MaxValue && Time.realtimeSinceStartup - _holdStart < HoldSeconds;
+                    if (shortPress) TakeOutPendingLighter();
+                    Dbg.Log("light: Lighter released");
+                }
+                _pendingLighter = null;
                 _holdStart = -1f;
                 return;
             }

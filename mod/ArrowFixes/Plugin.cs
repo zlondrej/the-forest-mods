@@ -52,7 +52,7 @@ namespace ArrowFixes
                 typeof(SendArrowMpPatch), typeof(ReceiveModernArrowPatch), typeof(ApplyStuckArrowToDummyPatch));
 
             if (Config.Bind("Fixes", "VrLighterIgnitesArrow", true,
-                    "VR: holding the Lighter button ignites a cloth-wrapped arrow, also while nocked (without taking out the lighter).").Value)
+                    "VR: holding the Lighter button ignites a cloth-wrapped arrow, also while nocked, without taking out the lighter (a short press still takes it out).").Value)
             {
                 Try("VrLighterIgnitesArrow", () => VrArrowLighting.Apply(harmony));
             }
