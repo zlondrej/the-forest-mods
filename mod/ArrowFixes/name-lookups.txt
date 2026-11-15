@@ -1,6 +1,7 @@
 # Members ArrowFixes looks up by name at runtime (AccessTools / Traverse / reflection).
 # Checked against both builds by scripts/check-plugin.sh. Prefix '?' = may be absent in a build.
 TheForest.Items.Craft.CraftingCog::_itemViewsCache
+TheForest.Items.Craft.CraftingCog::DoCraft
 TheForest.Items.Inventory.InventoryItemView::_multiViews
 TheForest.Items.World.BowController::_currentAmmo
 TheForest.Items.World.BowController::_lightingArrow

@@ -104,5 +104,72 @@ namespace ArrowFixes
             }
             return false;
         }
+
+        // ------------------------------------------------------------------ crafting
+
+        /// <summary>
+        /// Upgrading arrows takes the arrows off the mat and puts the product back, without properties: vanilla's
+        /// DoCraft lowers the arrow count (removing the first display object on the mat) and adds the product arrows
+        /// (spawning a new display object with default properties). With 5 bone arrows on the mat, that turned one
+        /// of them into a wooden arrow right before the upgrade was applied. While crafting, a display object spawned
+        /// without properties takes over the properties of one removed just before.
+        /// </summary>
+        private static readonly Dictionary<int, Queue<ItemProperties>> RemovedWhileCrafting = new Dictionary<int, Queue<ItemProperties>>();
+        private static bool _crafting;
+
+        private static readonly AccessTools.FieldRef<InventoryItemView, List<InventoryItemView>> MultiViews =
+            AccessTools.FieldRefAccess<InventoryItemView, List<InventoryItemView>>("_multiViews");
+
+        [HarmonyPatch(typeof(CraftingCog), "DoCraft")]
+        [HarmonyPrefix]
+        private static void DoCraftPrefix()
+        {
+            _crafting = true;
+            RemovedWhileCrafting.Clear();
+        }
+
+        [HarmonyPatch(typeof(CraftingCog), "DoCraft")]
+        [HarmonyFinalizer]
+        private static void DoCraftFinalizer()
+        {
+            _crafting = false;
+            RemovedWhileCrafting.Clear();
+        }
+
+        /// <summary>Remember the properties of the display objects vanilla is about to remove (same pick order).</summary>
+        [HarmonyPatch(typeof(InventoryItemView), nameof(InventoryItemView.RemovedMultiViews))]
+        [HarmonyPrefix]
+        private static void RemovedMultiViewsPrefix(InventoryItemView __instance, int itemId, int amount, ItemProperties properties)
+        {
+            if (!_crafting || amount <= 0) return;
+            var views = MultiViews(__instance);
+            if (views == null) return;
+            if (!RemovedWhileCrafting.TryGetValue(itemId, out var queue))
+                RemovedWhileCrafting[itemId] = queue = new Queue<ItemProperties>();
+            foreach (var v in views)
+            {
+                if (amount <= 0) break;
+                if (!v || v._itemId != itemId || !v.Properties.Match(properties)) continue;
+                var copy = new ItemProperties();
+                copy.Copy(v.Properties);
+                queue.Enqueue(copy);
+                amount--;
+            }
+        }
+
+        /// <summary>Give a display object spawned without properties those of one removed earlier in this craft.</summary>
+        [HarmonyPatch(typeof(InventoryItemView), nameof(InventoryItemView.SpawnAnyMultiview))]
+        [HarmonyPostfix]
+        private static void SpawnAnyMultiviewPostfix(InventoryItemView __instance, InventoryItemView source, ItemProperties properties)
+        {
+            if (!_crafting || properties != ItemProperties.Any || !source) return;
+            if (!RemovedWhileCrafting.TryGetValue(source._itemId, out var queue) || queue.Count == 0) return;
+            var views = MultiViews(__instance);
+            var spawned = views != null && views.Count > 0 ? views[views.Count - 1] : null;
+            if (!spawned || spawned._itemId != source._itemId) return;
+            var kept = queue.Dequeue();
+            spawned.Properties.Copy(kept);
+            Dbg.Log($"mat: craft respawned an arrow view, keeping {Dbg.Props(kept)}");
+        }
     }
 }
