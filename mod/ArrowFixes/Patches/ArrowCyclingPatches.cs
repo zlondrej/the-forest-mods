@@ -136,7 +136,7 @@ namespace ArrowFixes
             if (!pressed) return;
 
             LocalPlayer.Sfx.PlayWhoosh();
-            BurnOffLitArrow(bow, next);
+            PutOutLitArrow(bow, next);
             SetActiveBowBonus(bow, next.Bonus);
             SetSelectedBase(bowView, next.Base);
             SortByKey(bow._ammoItemId, next);
@@ -147,16 +147,20 @@ namespace ArrowFixes
         }
 
         /// <summary>
-        /// Vanilla burns the cloth off a lit arrow when you switch to a type that isn't flaming. Switching between two
-        /// flaming types (e.g. bone -> modern) kept the flame and moved it onto the other arrow; treat it the same way:
-        /// the lit arrow loses its cloth (BowSwitchAwayFromLitArrowPatch keeps its bone/modern base) and the flame goes out.
+        /// Switching between two flaming types (e.g. bone -> modern) kept the flame and moved it onto the other arrow.
+        /// Put the flame out instead; the lit arrow keeps its cloth and can be lit again. (Switching from a lit arrow to
+        /// a type that isn't flaming still burns its cloth off, as in vanilla.)
         /// </summary>
-        private static void BurnOffLitArrow(BowController bow, ArrowKey next)
+        private static void PutOutLitArrow(BowController bow, ArrowKey next)
         {
-            if (!bow._activeFireArrowGO || next.Bonus != ArrowBonus.BurningAmmo) return; // other cases: vanilla handles
-            SetActiveBowBonus(bow, ArrowUtil.NoBonus); // vanilla burn-off path
+            var flame = bow._activeFireArrowGO;
+            if (!flame || next.Bonus != ArrowBonus.BurningAmmo) return; // other cases: vanilla handles
+            UnityEngine.Object.Destroy(flame.gameObject);
+            bow._activeFireArrowGO = null; // also keeps vanilla SetActiveBowBonus from burning the cloth off
+            LocalPlayer.Inventory.IsWeaponBurning = false;
+            LocalPlayer.ScriptSetup.targetInfo.arrowFire = false;
             if (ActiveAmmoBonus(bow) == ArrowBonus.BurningAmmo) ActiveAmmoBonus(bow) = ArrowUtil.NoBonus; // unlit again
-            Dbg.Log("cycle: switched away from a lit arrow; its cloth burned off");
+            Dbg.Log("cycle: switched away from a lit arrow; flame put out, cloth kept");
         }
 
         private static void SetIcon(bool show)
