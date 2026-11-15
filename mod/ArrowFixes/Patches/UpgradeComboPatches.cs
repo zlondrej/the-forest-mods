@@ -120,16 +120,23 @@ namespace ArrowFixes
         }
     }
 
-    /// <summary>Show the bone/modern arrow model on the bow for coated bone/modern arrows.</summary>
+    /// <summary>
+    /// Show the bone/modern arrow model on the bow for coated bone/modern arrows, tinted like the vanilla cloth/poison
+    /// arrow. The cloth mesh ('ArrowCloth', child of the wooden arrow object) is switched by the bow's own bonus
+    /// listener and stays visible because only the wooden renderer is disabled here.
+    /// </summary>
     [HarmonyPatch(typeof(BowController), "UpdateArrowRenderer")]
     internal static class BowArrowRendererPatch
     {
         private static void Postfix(BowController __instance)
         {
             var arrow = BowUtil.CurrentArrow(__instance);
-            if (!arrow || !ArrowUtil.IsCoating(arrow.ActiveBonus)) return;
-            var b = ArrowUtil.GetBase(arrow.Properties);
-            if (!ArrowUtil.IsBase(b)) return;
+            var b = arrow ? ArrowUtil.GetBase(arrow.Properties) : ArrowUtil.NoBonus;
+            bool combo = arrow && ArrowUtil.IsCoating(arrow.ActiveBonus) && ArrowUtil.IsBase(b);
+            Color? tint = combo ? ArrowVisualPatches.TintFor(arrow, arrow.ActiveBonus) : (Color?)null;
+            ArrowVisualPatches.SetTint(__instance._boneAmmoAnimationRenderer, tint);
+            ArrowVisualPatches.SetTint(__instance._modernAmmoAnimationRenderer, tint);
+            if (!combo) return;
             if (__instance._ammoAnimationRenderer) __instance._ammoAnimationRenderer.enabled = false;
             if (__instance._boneAmmoAnimationRenderer) __instance._boneAmmoAnimationRenderer.enabled = b == ArrowBonus.BoneAmmo;
             if (__instance._modernAmmoAnimationRenderer) __instance._modernAmmoAnimationRenderer.enabled = b == ArrowBonus.ModernAmmo;

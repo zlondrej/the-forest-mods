@@ -8,9 +8,9 @@ None of the fixes have been played yet. They are only checked statically: the pl
 
 - **Arrows changed before installing stay as they are.** Bone arrows that already turned into normal arrows can't be restored. Cloth or poison arrows crafted from bone/modern arrows before installing don't remember their base, so they stay wooden.
 - **One coating per arrow.** An arrow can be bone *or* modern, plus cloth *or* poison. Cloth and poison on the same arrow isn't possible.
-- **Arrow-type cycling doesn't tell bases apart.** Looking down and pressing Rotate cycles by coating only, so flaming bone and flaming wooden arrows are one "flaming" group. You can't choose which of them fires next. Each arrow still fires with its own base damage.
-- **Inventory looks.** In the inventory, a coated bone/modern arrow looks like a coated wooden arrow.
-- **Bow model.** On the bow, a coated bone/modern arrow shows the bone/modern model without the cloth wrap. The flame still shows once it's lit.
+- **Arrow-type cycling order.** Looking down and pressing Rotate now treats each coating + base as its own type. The order is: plain, cloth, cloth bone, cloth modern, poison, poison bone, poison modern, bone, modern. Types you don't have are skipped.
+- **Cloth wrap position on bone/modern arrows is unverified.** The game has one cloth mesh per arrow, made for the wooden arrow. Bone and modern arrows reuse it, both in the inventory and on the bow, so it may not sit exactly on their tip.
+- **Fire/poison tint on bone/modern arrows.** Coated bone/modern arrows get the same color tint the game uses for coated wooden arrows (red for cloth, cyan-green for poison), applied to their own model.
 - **Modern arrow effects are repositioned.** On modern arrows, fire and poison are moved to the same spot relative to the tip as on wooden arrows, because modern arrows are longer. If they look misplaced, this is why.
 
 ## Multiplayer

@@ -28,6 +28,14 @@ namespace ArrowFixes
                 typeof(BowArrowRendererPatch), typeof(BowSwitchAwayFromLitArrowPatch), typeof(OnAmmoFiredCleanupPatch),
                 typeof(CoatingEffectAlignPatch));
 
+            Apply(harmony, "UpgradeComboCycling",
+                "Arrow-type cycling (look down + Rotate) treats e.g. flaming bone and flaming wooden arrows as separate types.",
+                typeof(ArrowCyclingPatches));
+
+            Apply(harmony, "UpgradeComboVisuals",
+                "Cloth/poison bone and modern arrows show their own model with the cloth wrap and fire/poison tint.",
+                typeof(ArrowVisualPatches));
+
             Apply(harmony, "MultiplayerStuckArrows",
                 "Multiplayer: bone/modern arrows stuck in enemies stay bone/modern for other players.",
                 typeof(SendArrowMpPatch), typeof(ReceiveModernArrowPatch), typeof(ApplyStuckArrowToDummyPatch));

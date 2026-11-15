@@ -18,3 +18,10 @@ TheForest.Utils.Input::GetButton
 ?TheForest.VR.InteractionSystem.ArrowHand::currentArrow
 ?Valve.VR.InteractionSystem.ArrowHand::FireArrow
 ?Valve.VR.InteractionSystem.ArrowHand::currentArrow
+TheForest.Items.World.BowController::NextAvailableArrowBonus
+TheForest.Items.Inventory.ActiveBonusListener::OnActiveBonusChanged
+TheForest.Items.Inventory.ActiveBonusListenerMulti::OnActiveBonusChanged
+TheForest.Items.Inventory.ItemProperties::ActiveBonusChanged
+TheForest.Items.Inventory.ItemProperties::set_ActiveBonusValue
+TheForest.Utils.Input::GetButtonDown
+?TheForest.Utils.Input/Actions::Rotate

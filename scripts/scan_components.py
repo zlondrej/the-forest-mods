@@ -73,6 +73,51 @@ def pickup_props(go):
     return None
 
 
+def pptr_name(assets_file, fid, pid):
+    """Readable name of a same-file PPtr target (GameObject path, or 'Type on path' for components)."""
+    if pid == 0:
+        return "null"
+    if fid != 0:
+        return f"<external {fid}:{pid}>"
+    try:
+        o = assets_file.objects[pid]
+        if o.type.name == "GameObject":
+            return go_path(o.read())
+        c = o.read(check_read=False) if o.type.name == "MonoBehaviour" else o.read()
+        kind = script_name(o)[0] if o.type.name == "MonoBehaviour" else o.type.name
+        return f"{kind} on {go_path(c.m_GameObject.deref().read())}"
+    except Exception as e:  # noqa: BLE001
+        return f"<{pid}: {e}>"
+
+
+def read_pptr_list(raw, off):
+    (n,) = struct.unpack_from("<i", raw, off)
+    off += 4
+    items = [struct.unpack_from("<iq", raw, off + 12 * i) for i in range(n)]
+    return items, off + 12 * n
+
+
+def decode_bonus_listener(name, mb, raw, off):
+    af = mb.assets_file
+    off += 12  # _itemView
+    if name == "ActiveBonusListener":
+        off += 12  # _heldItemIdentifier
+    gos, off = read_pptr_list(raw, off)
+    objs, off = read_pptr_list(raw, off)
+    if name == "ActiveBonusListener":
+        (bonus,) = struct.unpack_from("<i", raw, off)
+        bonuses = [bonus]
+        off += 4
+    else:
+        (n,) = struct.unpack_from("<i", raw, off)
+        bonuses = list(struct.unpack_from(f"<{n}i", raw, off + 4))
+        off += 4 + 4 * n
+    (inverse,) = struct.unpack_from("<B", raw, off)
+    gos_s = [pptr_name(af, f, p) for f, p in gos]
+    objs_s = [pptr_name(af, f, p) for f, p in objs]
+    return f"bonus={bonuses} inverse={inverse} targetGOs={gos_s} targetObjects={objs_s}"
+
+
 for path in files:
     env = UnityPy.load(path)
     for obj in env.objects:
@@ -101,4 +146,6 @@ for path in files:
             except Exception:  # noqa: BLE001
                 pass
             line += f"  targetFire='{target}' ArrowFire={arrow_fire}"
+        elif name in ("ActiveBonusListener", "ActiveBonusListenerMulti"):
+            line += "  " + decode_bonus_listener(name, mb, raw, off)
         print(line, flush=True)

@@ -39,7 +39,7 @@ namespace ArrowFixes
 
         public static void Apply(Harmony harmony)
         {
-            _lighterPressed = BuildLighterButtonReader();
+            _lighterPressed = InputCompat.Button("Lighter");
             harmony.Patch(AccessTools.Method(typeof(BowController), "Update"),
                 postfix: new HarmonyMethod(typeof(VrArrowLighting), nameof(BowUpdatePostfix)));
 
@@ -52,28 +52,6 @@ namespace ArrowFixes
                 harmony.Patch(fire, prefix: new HarmonyMethod(typeof(VrArrowLighting), nameof(ArrowHandFireArrowPrefix)));
                 Plugin.Log.LogInfo($"VrLighterIgnitesArrow: patched {typeName}.FireArrow");
             }
-        }
-
-        /// <summary>TheForest.Utils.Input.GetButton takes a string in the flat build and an Action object in VR.</summary>
-        private static Func<bool> BuildLighterButtonReader()
-        {
-            var input = typeof(TheForest.Utils.Input);
-            var getButton = input.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .First(m => m.Name == "GetButton" && m.GetParameters().Length == 1);
-            var paramType = getButton.GetParameters()[0].ParameterType;
-            object arg;
-            if (paramType == typeof(string))
-            {
-                arg = "Lighter";
-            }
-            else
-            {
-                var actions = input.GetNestedType("Actions", BindingFlags.Public | BindingFlags.NonPublic)
-                              ?? throw new MissingMemberException(input.FullName, "Actions");
-                arg = actions.GetField("Lighter", BindingFlags.Public | BindingFlags.Static)?.GetValue(null)
-                      ?? throw new MissingMemberException(actions.FullName, "Lighter");
-            }
-            return () => (bool)getButton.Invoke(null, new[] { arg });
         }
 
         private static void BowUpdatePostfix(BowController __instance)
