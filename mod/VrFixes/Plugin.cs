@@ -20,7 +20,12 @@ namespace VrFixes
             Log = Logger;
             var harmony = new Harmony(Guid);
             Verbose = Config.Bind("Debug", "VerboseLogging", false,
-                "Write detailed [debug] lines to BepInEx/LogOutput.log.").Value;
+                "Write detailed [debug] lines to BepInEx/LogOutput.log (also logs VR drop and throw attempts).").Value;
+            if (Verbose)
+            {
+                try { DebugPatches.Apply(harmony); Log.LogInfo("VerboseLogging: drop/throw logging applied"); }
+                catch (Exception e) { Log.LogError($"VerboseLogging: drop/throw logging failed. {e}"); }
+            }
 
             Apply(harmony, "AutoRunStaminaRegen",
                 "VR auto-run: once out of stamina, stamina regenerates while you keep walking with the stick fully forward (vanilla only regenerates after you ease off the stick).",

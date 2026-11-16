@@ -3,3 +3,6 @@
 FirstPersonCharacter::Update
 TheForest.Utils.LocalPlayer::MainCamTr
 HudGui::AirReserve
+?TheForest.Utils.Input::GetDropInput
+VRThrowable::ThrowProjectile
+TheForest.Items.Inventory.PlayerInventory::ThrowProjectile
