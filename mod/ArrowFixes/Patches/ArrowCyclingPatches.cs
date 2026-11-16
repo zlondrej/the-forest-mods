@@ -148,6 +148,9 @@ namespace ArrowFixes
             Dbg.Log($"cycle: switched to {next}; bow {Dbg.Props(bowView.Properties)}, next arrow {(now ? Dbg.Props(now.Properties) : "none")}");
         }
 
+        /// <summary>VR: switch arrow type while looking at the bow (else the vanilla look down).</summary>
+        public static bool VrLookAtBow = true;
+
         /// <summary>Max angle between the view and the bow, in VR, to switch arrow type.</summary>
         public static float VrBowLookAngle = 25f;
 
@@ -158,7 +161,7 @@ namespace ArrowFixes
         private static bool LookingToCycle(BowController bow, InventoryItemView bowView, out string info)
         {
             var cam = LocalPlayer.MainCamTr;
-            if (!ForestVR.Enabled || VrBowLookAngle <= 0f)
+            if (!ForestVR.Enabled || !VrLookAtBow || VrBowLookAngle <= 0f)
             {
                 float lookY = cam.forward.y;
                 info = $"look-down={lookY:0.00} (needs < -0.85)";
