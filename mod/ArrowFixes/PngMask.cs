@@ -18,7 +18,7 @@ namespace ArrowFixes
             var reader = new BinaryReader(stream);
             var signature = reader.ReadBytes(8);
             if (signature.Length != 8 || signature[1] != 'P' || signature[2] != 'N' || signature[3] != 'G')
-                throw new InvalidDataException("not a PNG");
+                throw new FormatException("not a PNG");
             int width = 0, height = 0, colorType = 0;
             var idat = new MemoryStream();
             while (true)
@@ -31,14 +31,14 @@ namespace ArrowFixes
                 {
                     width = BigEndian(data);
                     height = BigEndian(new[] { data[4], data[5], data[6], data[7] });
-                    if (data[8] != 8 || data[12] != 0) throw new InvalidDataException("only 8-bit, non-interlaced PNGs");
+                    if (data[8] != 8 || data[12] != 0) throw new FormatException("only 8-bit, non-interlaced PNGs");
                     colorType = data[9];
                 }
                 else if (type == "IDAT") idat.Write(data, 0, data.Length);
                 else if (type == "IEND") break;
             }
             int channels = colorType == 6 ? 4 : colorType == 2 ? 3 : colorType == 4 ? 2 : colorType == 0 ? 1 :
-                throw new InvalidDataException("unsupported PNG colour type " + colorType);
+                throw new FormatException("unsupported PNG colour type " + colorType);
 
             idat.Position = 2; // skip the zlib header
             var raw = new MemoryStream();

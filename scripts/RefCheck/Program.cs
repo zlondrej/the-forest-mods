@@ -21,7 +21,8 @@ resolver.AddSearchDirectory(managedDir);
 resolver.AddSearchDirectory(Path.GetDirectoryName(Path.GetFullPath(pluginPath))!);
 var plugin = ModuleDefinition.ReadModule(pluginPath, new ReaderParameters { AssemblyResolver = resolver });
 var gameAsm = AssemblyDefinition.ReadAssembly(Path.Combine(managedDir, "Assembly-CSharp.dll"), new ReaderParameters { AssemblyResolver = resolver });
-var gameScopes = new HashSet<string> { "Assembly-CSharp", "bolt", "bolt.user", "UnityEngine" };
+// Also the runtime libraries: the VR build ships a smaller System.dll (e.g. no System.IO.InvalidDataException).
+var gameScopes = new HashSet<string> { "Assembly-CSharp", "bolt", "bolt.user", "UnityEngine", "mscorlib", "System", "System.Core" };
 int failures = 0, checks = 0;
 
 void Fail(string what)

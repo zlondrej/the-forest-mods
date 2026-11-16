@@ -20,14 +20,26 @@ namespace ArrowFixes
                 : key.Bonus == ArrowBonus.PoisonnedAmmo ? IconCoating.Poison
                 : IconCoating.None;
             int id = (int)arrow * 3 + (int)coating;
-            if (Textures.TryGetValue(id, out var cached) && cached) return cached;
-            var texture = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
+            if (Textures.TryGetValue(id, out var cached)) return cached; // null after a failure: keep the game's icon
+            Texture2D texture = null;
+            try
             {
-                name = $"ArrowFixes_{arrow}_{coating}", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear,
-            };
-            texture.LoadRawTextureData(ArrowIconPainter.Paint(arrow, coating, Size));
-            texture.Apply(false, true);
-            Object.DontDestroyOnLoad(texture);
+                var pixels = ArrowIconPainter.Paint(arrow, coating, Size);
+                texture = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
+                {
+                    name = $"ArrowFixes_{arrow}_{coating}", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear,
+                };
+                texture.LoadRawTextureData(pixels);
+                texture.Apply(false, true);
+                Object.DontDestroyOnLoad(texture);
+            }
+            catch (System.Exception e)
+            {
+                // An icon must never break arrow switching or the basket: fall back to the game's icon.
+                Plugin.Log.LogError($"Arrow icon {arrow}/{coating} could not be made, using the game's icon. {e}");
+                if (texture) Object.Destroy(texture);
+                texture = null;
+            }
             Textures[id] = texture;
             return texture;
         }
@@ -37,6 +49,7 @@ namespace ArrowFixes
         {
             if (!target) return;
             if (!originals.ContainsKey(target)) originals[target] = target.mainTexture;
+            if (!texture) texture = originals[target];
             if (target.mainTexture != texture) target.mainTexture = texture;
         }
 
