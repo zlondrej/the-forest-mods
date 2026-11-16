@@ -44,8 +44,10 @@ namespace ArrowFixes
                 "Arrow basket: Rotate picks the arrow type to put in / take out (shown as an icon at the prompt), and the arrows in the basket show their type. Multiplayer: the host and players need the mod; with a host without it the basket works as in vanilla.",
                 typeof(ArrowBasket));
 
+            ArrowCyclingPatches.VrBowLookAngle = Config.Bind("Cycling", "VrBowLookAngle", ArrowCyclingPatches.VrBowLookAngle,
+                "VR: switch arrow type (Rotate) while looking at the bow, within this many degrees. 0 = vanilla: look straight down.").Value;
             Apply(harmony, "UpgradeComboCycling",
-                "Arrow-type cycling (look down + Rotate) treats e.g. flaming bone and flaming wooden arrows as separate types.",
+                "Arrow-type cycling (Rotate while looking down; in VR while looking at the bow) treats e.g. flaming bone and flaming wooden arrows as separate types.",
                 typeof(ArrowCyclingPatches));
 
             Apply(harmony, "UpgradeComboVisuals",

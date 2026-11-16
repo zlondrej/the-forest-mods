@@ -18,8 +18,8 @@ WHAT IT DOES
   - Fired bone arrows give bone arrows back (and stick in enemies as bone arrows).
   - Flaming (cloth) and poisoned bone/modern arrows keep their bone/modern base: damage, model, and what you get back.
     They get their own cloth wrap and tint, in the inventory and on the bow.
-  - Arrow-type switching (look down + Rotate) treats e.g. flaming bone and flaming wooden arrows as separate types,
-    and the prompt shows an icon of the selected type.
+  - Arrow-type switching treats e.g. flaming bone and flaming wooden arrows as separate types, and the prompt shows
+    an icon of the selected type. Press Rotate while looking down, or in VR while looking at the bow in your hand.
   - Arrow basket: Rotate picks the arrow type to put in / take out, the arrows in the basket show their type.
   - Crafting mat keeps arrow types apart (no more arrows turning into other types).
   - Switching arrow type while an arrow is lit puts the flame out and keeps the cloth.

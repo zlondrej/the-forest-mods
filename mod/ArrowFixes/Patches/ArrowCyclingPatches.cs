@@ -117,16 +117,16 @@ namespace ArrowFixes
         private static void HandleRotate(BowController bow, InventoryItemView bowView)
         {
             bool grabbing = LocalPlayer.Create.Grabber.Target;
-            float lookY = LocalPlayer.MainCamTr.forward.y;
             bool drawing = LocalPlayer.Animator.GetBool("drawBowBool");
             bool atBasket = ArrowBasket.Focused; // the basket uses Rotate to pick its arrow type
-            bool canCycle = !grabbing && lookY < -0.85f && !drawing && !atBasket;
+            bool looking = LookingToCycle(bow, bowView, out string lookInfo);
+            bool canCycle = !grabbing && looking && !drawing && !atBasket;
             var selected = ArrowKey.Of(bowView.Properties);
             var next = canCycle ? NextAvailable(bow._ammoItemId, selected) : selected;
             bool pressed = _rotatePressed();
             if (pressed && Dbg.On)
             {
-                Dbg.Log($"cycle: Rotate pressed. look-down={lookY:0.00} (needs < -0.85), grabbing={grabbing}, drawing={drawing}; " +
+                Dbg.Log($"cycle: Rotate pressed. {lookInfo}, grabbing={grabbing}, drawing={drawing}; " +
                         $"selected {selected}, next {next}; carrying {Dbg.Arrows(bow._ammoItemId)}");
             }
             if (next == selected)
@@ -146,6 +146,29 @@ namespace ArrowFixes
             SetIcon(false);
             var now = BowUtil.CurrentArrow(bow);
             Dbg.Log($"cycle: switched to {next}; bow {Dbg.Props(bowView.Properties)}, next arrow {(now ? Dbg.Props(now.Properties) : "none")}");
+        }
+
+        /// <summary>Max angle between the view and the bow, in VR, to switch arrow type.</summary>
+        public static float VrBowLookAngle = 25f;
+
+        /// <summary>
+        /// Flat-screen: look down steeply, as in vanilla. VR: look at the bow in your hand (vanilla's steep look down
+        /// is uncomfortable with a headset).
+        /// </summary>
+        private static bool LookingToCycle(BowController bow, InventoryItemView bowView, out string info)
+        {
+            var cam = LocalPlayer.MainCamTr;
+            if (!ForestVR.Enabled || VrBowLookAngle <= 0f)
+            {
+                float lookY = cam.forward.y;
+                info = $"look-down={lookY:0.00} (needs < -0.85)";
+                return lookY < -0.85f;
+            }
+            var bowTr = bowView._held ? bowView._held.transform : bow.transform;
+            var toBow = bowTr.position - cam.position;
+            float angle = toBow.sqrMagnitude > 1e-6f ? Vector3.Angle(cam.forward, toBow) : 0f;
+            info = $"angle to bow={angle:0}° (needs < {VrBowLookAngle:0}°)";
+            return angle < VrBowLookAngle;
         }
 
         /// <summary>
