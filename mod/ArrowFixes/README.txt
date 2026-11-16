@@ -10,8 +10,9 @@ INSTALL
   you started (TheForest or TheForestVR), and further down there are "Arrow Fixes ... applied" lines.
 
 UNINSTALL
-  Delete from the game folder: the BepInEx folder, winhttp.dll, doorstop_config.ini, .doorstop_version, changelog.txt
-  and ArrowFixes-README.txt. Steam's "Verify integrity of game files" does not remove them.
+  Just this mod: delete BepInEx\plugins\ArrowFixes.
+  Everything: delete from the game folder the BepInEx folder, winhttp.dll, doorstop_config.ini, .doorstop_version,
+  changelog.txt and the *-README.txt files. Steam's "Verify integrity of game files" does not remove them.
 
 WHAT IT DOES
   - Fired bone arrows give bone arrows back (and stick in enemies as bone arrows).
