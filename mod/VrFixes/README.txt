@@ -15,6 +15,8 @@ UNINSTALL
 WHAT IT DOES
   - Auto-run: once you run out of stamina, stamina regenerates while you keep walking with the stick fully forward
     (in vanilla you had to ease off the stick first). To sprint again, ease off and push the stick again, as before.
+  - Underwater air bar: shown in front of your view while you hold your breath (vanilla VR never shows it). Its
+    distance, height and size can be changed in the config ([UnderwaterAirBar] section).
 
   Each fix can be turned off in BepInEx\config\forestmods.vrfixes.cfg (created on first start).
 

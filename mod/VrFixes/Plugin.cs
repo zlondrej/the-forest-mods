@@ -2,6 +2,7 @@ using System;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using UnityEngine;
 
 namespace VrFixes
 {
@@ -24,6 +25,24 @@ namespace VrFixes
             Apply(harmony, "AutoRunStaminaRegen",
                 "VR auto-run: once out of stamina, stamina regenerates while you keep walking with the stick fully forward (vanilla only regenerates after you ease off the stick).",
                 typeof(AutoRunStaminaPatch));
+
+            _airHud = Config.Bind("Fixes", "UnderwaterAirBar", true,
+                "Show the underwater air bar in VR, in front of the view (vanilla VR never shows it).").Value;
+            AirHud.Distance = Config.Bind("UnderwaterAirBar", "Distance", AirHud.Distance, "Distance from the eyes, in metres.").Value;
+            AirHud.Height = Config.Bind("UnderwaterAirBar", "Height", AirHud.Height, "Height relative to the centre of the view, in metres (negative = below).").Value;
+            AirHud.Size = Config.Bind("UnderwaterAirBar", "Size", AirHud.Size, "Size of one HUD pixel, in metres.").Value;
+            Log.LogInfo(_airHud ? "UnderwaterAirBar: applied" : "UnderwaterAirBar: disabled in config");
+        }
+
+        private bool _airHud;
+        private float _nextTick;
+
+        private void Update()
+        {
+            if (!_airHud || Time.unscaledTime < _nextTick) return;
+            _nextTick = Time.unscaledTime + 0.5f;
+            try { AirHud.Tick(); }
+            catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
         }
 
         internal static void Debug(string message)
