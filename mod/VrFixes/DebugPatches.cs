@@ -6,8 +6,8 @@ using UnityEngine;
 namespace VrFixes
 {
     /// <summary>
-    /// [Debug] VerboseLogging only: log VR drop and throw attempts, to see why trophies (animal/creepy heads) don't drop
-    /// and why the time bomb doesn't throw.
+    /// [Debug] VerboseLogging only: log VR drop and throw attempts, and what drives the rope climbing animation (to see
+    /// why the fast rope slide rarely starts in VR).
     /// </summary>
     internal static class DebugPatches
     {
@@ -23,6 +23,44 @@ namespace VrFixes
                 postfix: new HarmonyMethod(typeof(DebugPatches), nameof(ThrowPostfix)));
             harmony.Patch(AccessTools.Method(typeof(PlayerInventory), "ThrowProjectile"),
                 prefix: new HarmonyMethod(typeof(DebugPatches), nameof(InventoryThrowPrefix)));
+            harmony.Patch(AccessTools.Method(typeof(playerAnimatorControl), "Update"),
+                postfix: new HarmonyMethod(typeof(DebugPatches), nameof(RopeStatePostfix)));
+        }
+
+        // ------------------------------------------------------------------ rope
+
+        private static readonly AccessTools.FieldRef<playerAnimatorControl, float> VerticalSpeed =
+            AccessTools.FieldRefAccess<playerAnimatorControl, float>("verticalSpeed");
+
+        private static readonly AccessTools.FieldRef<playerAnimatorControl, float> YVel =
+            AccessTools.FieldRefAccess<playerAnimatorControl, float>("yVel");
+
+        private static float _nextRopeLog;
+
+        /// <summary>
+        /// While on a rope, log what drives the climbing animation (twice a second). The fast slide is picked by the
+        /// animator from these values; in flat-screen sprint starts it, in VR it rarely does.
+        /// </summary>
+        private static void RopeStatePostfix(playerAnimatorControl __instance)
+        {
+            if (__instance != LocalPlayer.AnimControl || !__instance.onRope || Time.time < _nextRopeLog) return;
+            _nextRopeLog = Time.time + 0.5f;
+            var animator = LocalPlayer.Animator;
+            var fpc = LocalPlayer.FpCharacter;
+            object startedMoving = null;
+            try
+            {
+                var vr = Traverse.Create(typeof(LocalPlayer)).Field("vrPlayerControl");
+                if (!vr.FieldExists()) vr = Traverse.Create(typeof(LocalPlayer)).Property("vrPlayerControl");
+                var control = vr.GetValue();
+                if (control != null) startedMoving = Traverse.Create(control).Field("_startedMoving").GetValue();
+            }
+            catch { }
+            Plugin.Debug($"rope state: animator vSpeed={(animator ? animator.GetFloat("vSpeed") : float.NaN):0.00}" +
+                         $" climbSpeed={(animator ? animator.GetFloat("climbSpeed") : float.NaN):0.00}" +
+                         $" verticalSpeed={VerticalSpeed(__instance):0.00} input={(fpc ? fpc.inputVelocity : Vector3.zero)}" +
+                         $" run={(fpc ? fpc.run : false)} startedMoving={startedMoving ?? "n/a"} yVel={YVel(__instance):0.0}" +
+                         $" stamina={(LocalPlayer.Stats ? LocalPlayer.Stats.Stamina : -1f):0.0}");
         }
 
         private static int _lastDropFrame = -1;

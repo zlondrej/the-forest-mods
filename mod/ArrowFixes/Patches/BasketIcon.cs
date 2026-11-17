@@ -11,6 +11,39 @@ namespace ArrowFixes
         public const int Size = 152; // same as the game's arrow icon, so they fit where it is used
         private static readonly Dictionary<int, Texture2D> Textures = new Dictionary<int, Texture2D>();
 
+        // Painting an icon (and decoding the badge PNGs) takes long enough to freeze a frame, so all of them are painted
+        // on a background thread at startup; only the texture is made on the game's thread when an icon is first shown.
+        // ArrowIconPainter isn't thread-safe (badge cache), hence one lock around all painting.
+        private static readonly object PaintLock = new object();
+        private static readonly Dictionary<int, byte[]> Painted = new Dictionary<int, byte[]>(); // guarded by PaintLock
+
+        private static int Id(IconBase arrow, IconCoating coating) => (int)arrow * 3 + (int)coating;
+
+        public static void PrepaintInBackground()
+        {
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    foreach (IconBase arrow in System.Enum.GetValues(typeof(IconBase)))
+                    foreach (IconCoating coating in System.Enum.GetValues(typeof(IconCoating)))
+                    {
+                        lock (PaintLock)
+                        {
+                            int id = Id(arrow, coating);
+                            if (!Painted.ContainsKey(id)) Painted[id] = ArrowIconPainter.Paint(arrow, coating, Size);
+                        }
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    // Not fatal: For() paints (and reports) an icon that is missing here when it is needed.
+                    Plugin.Log.LogWarning($"Arrow icons could not be prepared in the background. {e.Message}");
+                }
+            }) { IsBackground = true, Name = "ArrowFixes icons" };
+            thread.Start();
+        }
+
         public static Texture2D For(ArrowKey key)
         {
             var arrow = key.Bonus == ArrowBonus.BoneAmmo || key.Base == ArrowBonus.BoneAmmo ? IconBase.Bone
@@ -19,12 +52,18 @@ namespace ArrowFixes
             var coating = key.Bonus == ArrowBonus.BurningAmmo ? IconCoating.Fire
                 : key.Bonus == ArrowBonus.PoisonnedAmmo ? IconCoating.Poison
                 : IconCoating.None;
-            int id = (int)arrow * 3 + (int)coating;
+            int id = Id(arrow, coating);
             if (Textures.TryGetValue(id, out var cached)) return cached; // null after a failure: keep the game's icon
             Texture2D texture = null;
             try
             {
-                var pixels = ArrowIconPainter.Paint(arrow, coating, Size);
+                byte[] pixels;
+                lock (PaintLock)
+                {
+                    // Usually already painted in the background (PrepaintInBackground); else paint it now.
+                    if (Painted.TryGetValue(id, out pixels)) Painted.Remove(id);
+                    else pixels = ArrowIconPainter.Paint(arrow, coating, Size);
+                }
                 texture = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
                 {
                     name = $"ArrowFixes_{arrow}_{coating}", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear,

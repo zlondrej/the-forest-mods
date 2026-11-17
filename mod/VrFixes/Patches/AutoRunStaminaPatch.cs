@@ -23,6 +23,9 @@ namespace VrFixes
         private static void Postfix(FirstPersonCharacter __instance, float __state)
         {
             if (!ForestVR.Enabled || !PlayerPreferences.VRAutoRun || __instance != LocalPlayer.FpCharacter) return;
+            // Not on a rope: there, holding sprint while exhausted doesn't regenerate stamina in flat-screen either (and
+            // with the VR rope slide working, it let you slide and regenerate at once).
+            if (LocalPlayer.AnimControl && LocalPlayer.AnimControl.onRope) return;
             if (!__instance.CantRun || !__instance.running)
             {
                 _logged = false;

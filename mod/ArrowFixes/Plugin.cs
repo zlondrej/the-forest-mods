@@ -26,6 +26,8 @@ namespace ArrowFixes
                 Try("VerboseLogging", () => PatchClass(harmony, typeof(DebugBonusChangePatches)));
             }
 
+            ArrowIconTextures.PrepaintInBackground(); // so showing an icon the first time doesn't freeze a frame
+
             Apply(harmony, "BoneArrowPickup",
                 "Fired bone arrows give a bone arrow back when picked up (and stick into enemies as bone arrows).",
                 typeof(BoneArrowPickupPatch));

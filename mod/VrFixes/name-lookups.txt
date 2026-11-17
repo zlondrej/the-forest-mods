@@ -6,3 +6,9 @@ HudGui::AirReserve
 ?TheForest.Utils.Input::GetDropInput
 VRThrowable::ThrowProjectile
 TheForest.Items.Inventory.PlayerInventory::ThrowProjectile
+?TheForest.Utils.LocalPlayer::WaterViz
+?TheForest.Utils.Input::VRThrowInput
+playerAnimatorControl::verticalSpeed
+playerAnimatorControl::yVel
+playerAnimatorControl::Update
+?TheForest.Utils.LocalPlayer::vrPlayerControl

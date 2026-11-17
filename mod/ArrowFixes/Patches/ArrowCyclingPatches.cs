@@ -90,11 +90,28 @@ namespace ArrowFixes
         {
             var player = __instance._player;
             if (player == null || player.CurrentView != PlayerInventory.PlayerViews.World) return;
+            HideArrowWhenNoneLeft(player, __instance._ammoItemId);
             var bowView = BowView(__instance);
             if (!bowView) return;
 
             KeepCurrentArrowOnSelection(__instance, bowView);
             HandleRotate(__instance, bowView);
+        }
+
+        /// <summary>
+        /// The arrow on the bow is only hidden when firing (or unequipping); taking the last arrow away otherwise (into
+        /// an arrow basket, onto the crafting mat) left it on the bow until the next shot. Hide it as soon as none are
+        /// left, like after firing the last one (the fired arrow leaves the inventory at release, so a drawn last arrow
+        /// stays visible until then).
+        /// </summary>
+        private static void HideArrowWhenNoneLeft(PlayerInventory player, int ammoItemId)
+        {
+            if (player.Owns(ammoItemId, false)) return;
+            if (!player.InventoryItemViewsCache.TryGetValue(ammoItemId, out var views) || views == null || views.Count == 0) return;
+            var held = views[0]._held;
+            if (!held || !held.activeSelf) return;
+            player.ToggleAmmo(ammoItemId, false);
+            Dbg.Log("bow: no arrows left, hid the arrow on the bow");
         }
 
         /// <summary>Vanilla only re-sorts when the bonus differs; also re-sort when only the base differs.</summary>
