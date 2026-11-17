@@ -18,3 +18,5 @@ VRTheatreController::storeVrOffsetPos
 VRPlayerAdapter::JointsOffsetTransform
 camFollowHead::headJnt
 playerScriptSetup::playerCam
+PlayerStats::releaseFromHanging
+VRPlayerControl::canUpdateMovement

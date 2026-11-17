@@ -80,6 +80,10 @@ namespace VrFixes
                 prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(SwitchToTheatrePrefix)));
             harmony.Patch(AccessTools.Method(typeof(VRTheatreController), "Update"),
                 postfix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(TheatreUpdatePostfix)));
+            harmony.Patch(AccessTools.Method(typeof(PlayerStats), "releaseFromHanging"),
+                prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(ReleaseFromHangingPrefix)));
+            harmony.Patch(AccessTools.Method(typeof(VRPlayerControl), "canUpdateMovement"),
+                postfix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(CanUpdateMovementPostfix)));
         }
 
         private static void Started(Case c) => _case = c;
@@ -98,6 +102,7 @@ namespace VrFixes
         private static void StartHangingInCave()
         {
             Started(Case.HangingInCave);
+            if (Plugin.Verbose && ForestVR.Enabled && _theatre) LogState(_theatre, "hanging scene starts");
             if (!ForestVR.Enabled || !Is(Immersive, Case.HangingInCave) || !Is(RotationOnly, Case.HangingInCave)) return;
             _hangingSince = UnityEngine.Time.time;
             _hangingSeen = false;
@@ -145,7 +150,8 @@ namespace VrFixes
             BodyView.Show();
             if (Is(RotationOnly, _case))
             {
-                HeadPin.Start(_case == Case.HangingInCave ? StillHanging : (Func<bool>)null);
+                HeadPin.Start(_case == Case.HangingInCave ? StillHanging : (Func<bool>)null,
+                    _case == Case.Climbing && ClimbingFreeOnRope ? InClimbTransition : (Func<bool>)null);
                 // The body plays the scene as in the theatre (skeleton on the body), so the animator gets the theatre's
                 // ghostMode flag too: without it the scene's full-body animations don't finish (cut down from hanging,
                 // the fall never reached idle, so the controls never came back).
@@ -180,13 +186,49 @@ namespace VrFixes
             var vr = LocalPlayer.vrPlayerControl;
             var eye = LocalPlayer.MainCamTr;
             if (!vr || !vr.VRCameraRig || !eye || !HeadPin.FlatView(out var position, out var rotation)) return;
-            var rig = vr.VRCameraRig;
-            float turn = Mathf.DeltaAngle(HeadPin.Heading(eye.rotation), HeadPin.Heading(rotation));
-            rig.RotateAround(eye.position, Vector3.up, turn);
-            var offset = position - eye.position;
-            offset.y = 0f;
-            rig.position += offset;
-            Plugin.Debug($"immersive camera: view turned {turn:0}° and moved {offset.magnitude:0.00} m to the character's head");
+            HeadPin.AlignView(vr.VRCameraRig, eye, position, HeadPin.Heading(rotation));
+        }
+
+        /// <summary>Climbing with rotation only: pin the view only while getting on and off, free on the rope.</summary>
+        internal static bool ClimbingFreeOnRope = true;
+
+        private static readonly int ClimbingTag = Animator.StringToHash("climbing");
+        private static readonly int ClimbIdleTag = Animator.StringToHash("climbIdle");
+
+        /// <summary>
+        /// Getting onto or off the rope/wall: the body's animator (base layer) is not (or not only) in the plain climbing
+        /// states, which the game itself tags "climbing" and "climbIdle".
+        /// </summary>
+        private static bool InClimbTransition()
+        {
+            var animator = LocalPlayer.Animator;
+            if (!animator) return true;
+            if (!IsClimbState(animator.GetCurrentAnimatorStateInfo(0))) return true;
+            return animator.IsInTransition(0) && !IsClimbState(animator.GetNextAnimatorStateInfo(0));
+        }
+
+        private static bool IsClimbState(AnimatorStateInfo state) => state.tagHash == ClimbingTag || state.tagHash == ClimbIdleTag;
+
+        /// <summary>
+        /// Cut down from hanging: flat-screen's camera follows the animation (falling on the back, getting up), VR's code
+        /// leaves that out, so the pinned view stayed upside down. Follow the head as flat-screen does.
+        /// </summary>
+        private static void ReleaseFromHangingPrefix()
+        {
+            if (Plugin.Verbose && ForestVR.Enabled && _theatre) LogState(_theatre, "cut down from hanging");
+            if (!ForestVR.Enabled || !HeadPin.On) return;
+            HeadPin.FollowHead = true;
+            Plugin.Debug("immersive camera: cut down from hanging, the view follows the head");
+        }
+
+        /// <summary>
+        /// While the view is pinned the headset's position means nothing for the body, but VR's room-scale code would
+        /// still move and turn the player toward it (and bend the spine to it) when movement isn't locked, e.g. in the
+        /// first second of the hanging scene: no VR movement updates while a pin is on.
+        /// </summary>
+        private static void CanUpdateMovementPostfix(ref bool __result)
+        {
+            if (__result && HeadPin.On) __result = false;
         }
 
         /// <summary>As when the theatre ends: the rig is moved so the eye is (horizontally) over the body's camera origin.</summary>
@@ -222,10 +264,38 @@ namespace VrFixes
         /// mode on is overridden later). If the theatre was skipped, also clear what SwitchToGameMode would have reset
         /// (stand positions, stepped mode).
         /// </summary>
+        private static bool _loggedGhost;
+        private static VRTheatreController _theatre; // LocalPlayer.vrTheatreController doesn't exist in the flat-screen build
+
+        /// <summary>Debug: the state that decides how a scene plays (to tell why one went wrong).</summary>
+        private static void LogState(VRTheatreController theatre, string what)
+        {
+            try
+            {
+                var adapter = LocalPlayer.vrAdapter;
+                var joints = adapter ? adapter.JointsOffsetTransform : null;
+                var animator = LocalPlayer.Animator;
+                Plugin.Debug($"immersive camera: {what}: case={_case} theatre={theatre.theatreOn} ghostFlag={theatre.ghostFromTheatreMode} " +
+                             $"pin={(HeadPin.On ? (HeadPin.Engaged ? "pinned" : "free") : "off")} skeletonUnder='{(joints && joints.parent ? joints.parent.name : "-")}' " +
+                             $"followAnim={(LocalPlayer.CamFollowHead && LocalPlayer.CamFollowHead.followAnim)} " +
+                             $"hanging={(animator && animator.GetBool("hangingBool"))} upsideDown={(LocalPlayer.AnimControl && LocalPlayer.AnimControl.upsideDown)} " +
+                             $"fpCharacter={(LocalPlayer.FpCharacter && LocalPlayer.FpCharacter.enabled)} " +
+                             $"playerYaw={(LocalPlayer.Transform ? LocalPlayer.Transform.eulerAngles.y : 0f):0} viewYaw={(LocalPlayer.MainCamTr ? HeadPin.Heading(LocalPlayer.MainCamTr.rotation) : 0f):0}");
+            }
+            catch (Exception e) { Plugin.Debug($"immersive camera: {what} (state not available: {e.Message})"); }
+        }
+
         private static void TheatreUpdatePostfix(VRTheatreController __instance)
         {
+            _theatre = __instance;
             var vr = LocalPlayer.vrPlayerControl;
             bool ghost = vr && vr.useGhostMode;
+            if (Plugin.Verbose && ghost != _loggedGhost)
+            {
+                _loggedGhost = ghost;
+                LogState(__instance, ghost ? "ghost mode on" : "ghost mode off");
+            }
+            HeadPin.Tick();
             // The pin ends with ghost mode, or later for scenes that outlast it (hanging: the game ends ghost mode
             // while the player still hangs).
             if (!ghost && HeadPin.On && !HeadPin.Holding) HeadPin.Stop();
@@ -245,6 +315,7 @@ namespace VrFixes
                 if (_setGhostFlag && !__instance.theatreOn) __instance.ghostFromTheatreMode = false;
                 _setGhostFlag = false;
                 _aligned = false;
+                if (Plugin.Verbose) LogState(__instance, "scene ended");
                 _case = Case.None;
                 _skipping = Case.None;
             }
