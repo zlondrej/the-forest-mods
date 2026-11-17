@@ -11,11 +11,9 @@ UNINSTALL
   Just this mod: delete BepInEx\plugins\Tweaks. Everything: see UNINSTALL in ArrowFixes-README.txt.
 
 WHAT IT DOES
-  - Rope: sliding down fast (sprint, or the stick fully down with VR auto-run) costs no stamina. Climbing up costs
-    stamina as before. To make sliding cost a little, set [RopeSlide] StaminaCost in the config (0 = free,
-    1 = vanilla).
-
-  Each tweak can be turned off in BepInEx\config\forestmods.tweaks.cfg (created on first start).
+  - Rope: moving down a rope (climbing or sliding down fast) costs no stamina; climbing up costs stamina as before.
+    [RopeSlide] StaminaCost in BepInEx\config\forestmods.tweaks.cfg (created on first start) sets the cost as a
+    share of vanilla: 0 = free, 0.5 = half, 1 = vanilla (the game is then left unpatched).
 
 CREDITS
   BepInEx 5.4.23.6 (https://github.com/BepInEx/BepInEx), LGPL-2.1, included unmodified.

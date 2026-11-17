@@ -21,11 +21,11 @@ namespace Tweaks
             Verbose = Config.Bind("Debug", "VerboseLogging", false,
                 "Write detailed [debug] lines to BepInEx/LogOutput.log.").Value;
 
+            // One setting: at 1 (vanilla) nothing is patched, unless VerboseLogging wants the rope log lines.
             RopeSlideStaminaPatch.CostRatio = Config.Bind("RopeSlide", "StaminaCost", 0f,
-                "Share of the normal sprint stamina cost that sliding down a rope fast costs (0 = free, 1 = vanilla).").Value;
-            Apply(harmony, "RopeSlideStamina",
-                "Sliding down a rope fast (sprint, or the stick fully down with VR auto-run) costs no stamina, or only the share set in [RopeSlide] StaminaCost. Climbing up is unchanged.",
-                typeof(RopeSlideStaminaPatch));
+                "Stamina cost of moving down a rope, as a share of vanilla: 0 = free, 0.5 = half, 1 = vanilla (the game is then left unpatched). Climbing up is unchanged.").Value;
+            Apply(harmony, "RopeSlideStamina", RopeSlideStaminaPatch.CostRatio != 1f || Verbose,
+                "StaminaCost is 1 (vanilla)", typeof(RopeSlideStaminaPatch));
         }
 
         internal static void Debug(string message)
@@ -33,11 +33,11 @@ namespace Tweaks
             if (Verbose) Log.LogInfo("[debug] " + message);
         }
 
-        private bool Apply(Harmony harmony, string key, string description, params Type[] patchClasses)
+        private bool Apply(Harmony harmony, string key, bool enabled, string whyNot, params Type[] patchClasses)
         {
-            if (!Config.Bind("Tweaks", key, true, description).Value)
+            if (!enabled)
             {
-                Log.LogInfo($"{key}: disabled in config");
+                Log.LogInfo($"{key}: not applied ({whyNot})");
                 return false;
             }
             try
