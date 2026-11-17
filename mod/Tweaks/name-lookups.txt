@@ -1,8 +1,0 @@
-# Members Tweaks looks up by name at runtime (Harmony patch targets given as strings, AccessTools).
-# Checked against both builds by scripts/check-plugin.sh. Prefix '?' = may be absent in a build.
-playerAnimatorControl::yVel
-FirstPersonCharacter::HandleRunningStaminaAndSpeed
-animEventsManager::staminaDrain
-playerAnimatorControl::verticalSpeed
-playerAnimatorControl::Update
-?TheForest.Utils.LocalPlayer::vrPlayerControl

@@ -8,7 +8,7 @@ set -euo pipefail
 GAME_DIR="${GAME_DIR:?Set GAME_DIR to The Forest install folder, e.g. export GAME_DIR='/path/to/steamapps/common/The Forest'}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS=("$@")
-[[ ${#PLUGINS[@]} -gt 0 ]] || PLUGINS=(ArrowFixes VrFixes Tweaks)
+[[ ${#PLUGINS[@]} -gt 0 ]] || PLUGINS=(ArrowFixes VrFixes)
 
 dotnet build "$ROOT/scripts/RefCheck" -c Release -nologo -v q
 
