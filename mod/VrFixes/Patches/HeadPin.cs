@@ -85,7 +85,7 @@ namespace VrFixes
         }
 
         /// <summary>Smoothing time constants (seconds) of the pinned view; 0 = none.</summary>
-        public static float RotationSmoothing = 0.1f, PositionSmoothing = 0.05f;
+        public static float RotationSmoothing = 0f, PositionSmoothing = 0f;
 
         private static int _smoothedFrame = -1;
         private static bool _smoothing;

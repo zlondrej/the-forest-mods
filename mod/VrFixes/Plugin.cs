@@ -124,17 +124,17 @@ namespace VrFixes
                     "only rotates it (no positional tracking), false = normal headset tracking. Changes apply while the game runs.");
             }
 
-            Bind(ImmersiveCamera.Case.Caves, true, false, "Crawling into or out of a cave entrance");
-            Bind(ImmersiveCamera.Case.Climbing, true, false, "Getting onto a rope or climbing wall, from the bottom or the top");
-            Bind(ImmersiveCamera.Case.Drinking, false, false, "Drinking from a lake, river or other water");
-            Bind(ImmersiveCamera.Case.Raft, false, false, "Getting on and riding a raft");
-            Bind(ImmersiveCamera.Case.Skinning, false, false, "Skinning an animal");
-            Bind(ImmersiveCamera.Case.KeypadDoors, false, false, "Opening a keycard/keypad door");
-            Bind(ImmersiveCamera.Case.Artifact, false, false, "Placing the artifact");
-            Bind(ImmersiveCamera.Case.StoryScenes, false, false,
+            Bind(ImmersiveCamera.Case.Caves, true, true, "Crawling into or out of a cave entrance");
+            Bind(ImmersiveCamera.Case.Climbing, true, true, "Getting onto a rope or climbing wall, from the bottom or the top");
+            Bind(ImmersiveCamera.Case.Drinking, true, true, "Drinking from a lake, river or other water");
+            Bind(ImmersiveCamera.Case.Raft, true, true, "Getting on and riding a raft");
+            Bind(ImmersiveCamera.Case.Skinning, true, true, "Skinning an animal");
+            Bind(ImmersiveCamera.Case.KeypadDoors, true, true, "Opening a keycard/keypad door");
+            Bind(ImmersiveCamera.Case.Artifact, true, true, "Placing the artifact");
+            Bind(ImmersiveCamera.Case.StoryScenes, true, true,
                 "Story scenes (opening plane crash, being dragged away, waking up, Timmy, the girl, the endings); first person may break some");
-            Bind(ImmersiveCamera.Case.HangingInCave, false, true, "Waking up hanging upside down in the cave");
-            Bind(ImmersiveCamera.Case.Death, false, false, "Dying (falling, drowning, killed)");
+            Bind(ImmersiveCamera.Case.HangingInCave, true, true, "Waking up hanging upside down in the cave");
+            Bind(ImmersiveCamera.Case.Death, true, true, "Dying (falling, drowning, killed)");
 
             _showBody = Config.Bind("ImmersiveCamera", "ShowBody", true,
                 "In first-person scenes: show your body (not the head) and its animated arms instead of the VR hands, as the theatre does. Changes apply while the game runs.");
