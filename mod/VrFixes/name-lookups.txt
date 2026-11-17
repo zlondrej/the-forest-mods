@@ -12,3 +12,9 @@ playerAnimatorControl::verticalSpeed
 playerAnimatorControl::yVel
 playerAnimatorControl::Update
 ?TheForest.Utils.LocalPlayer::vrPlayerControl
+VRTheatreController::Update
+VRTheatreController::steppedMode
+VRTheatreController::storeVrOffsetPos
+VRPlayerAdapter::JointsOffsetTransform
+camFollowHead::headJnt
+playerScriptSetup::playerCam
