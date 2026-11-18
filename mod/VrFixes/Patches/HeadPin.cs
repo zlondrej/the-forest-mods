@@ -13,8 +13,8 @@ namespace VrFixes
     /// eye sits there with that rotation; the headset's rotation is added on top.
     ///
     /// A scene (<see cref="On"/>) may pin the view only part of the time (<c>pinWhile</c>, e.g. climbing: only getting
-    /// on and off the rope); in between the headset tracks normally. When the view is released, it continues from
-    /// where the pinned view was (same heading, same spot), so it doesn't jump.
+    /// on and off the rope); in between the headset tracks horizontally, the height stays the head's. When the view is
+    /// released, it continues from where the pinned view was (same heading, same spot), so it doesn't jump.
     /// </summary>
     internal static class HeadPin
     {
@@ -76,12 +76,33 @@ namespace VrFixes
         public static void Stop()
         {
             if (!_on) return;
-            Disengage();
+            Disengage(sceneEnds: true);
             RestoreSkeleton();
             _keepWhile = _pinWhile = null;
             FollowHead = false;
             _on = false;
             Plugin.Debug("immersive camera: scene with the view pinned ended");
+        }
+
+        /// <summary>
+        /// The player is gone (game over, back to the menu) while a scene was pinned: positional tracking is a global
+        /// setting, it must come back on or the menu's view stays frozen in place (out of step with the controllers).
+        /// Everything else belonged to the old player and is dropped.
+        /// </summary>
+        public static void Abandon()
+        {
+            if (!_on && !_engaged && _continueFrom == null) return;
+            Camera.onPreCull -= Pin;
+            Camera.onPreCull -= HoldHeight;
+            SetPositionalTracking(true);
+            _on = _engaged = false;
+            _continueFrom = null;
+            _rig = null;
+            _keepWhile = _pinWhile = null;
+            FollowHead = false;
+            _joints = _jointsParent = null;
+            _jointsConstraint = null;
+            Plugin.Debug("immersive camera: player gone during a pinned scene, positional tracking back on");
         }
 
         /// <summary>Every frame: pin or release the view as the scene's <c>pinWhile</c> says; finish a pending release.</summary>
@@ -91,12 +112,13 @@ namespace VrFixes
             if (!_on || _pinWhile == null) return;
             bool pin = Safe(_pinWhile, true);
             if (pin && !_engaged) Engage();
-            else if (!pin && _engaged) Disengage();
+            else if (!pin && _engaged) Disengage(sceneEnds: false);
         }
 
         private static void Engage()
         {
             if (_engaged || !_rig || !LocalPlayer.MainCamTr) return;
+            Camera.onPreCull -= HoldHeight;
             _continueFrom = null;
             _rigLocalPosition = _rig.localPosition;
             _rigLocalRotation = _rig.localRotation;
@@ -112,18 +134,27 @@ namespace VrFixes
         }
 
         /// <summary>
-        /// Back to normal tracking: the rig's own pose back, then (next frame, once the headset's position is tracked
-        /// again) turned and moved so the view continues from where the pinned view was.
+        /// Back to headset tracking: the rig's own pose back, then (next frame, once the headset's position is tracked
+        /// again) turned and moved so the view continues from where the pinned view was. Within a scene (released only
+        /// for a while, e.g. on the rope) the height stays the head's (<see cref="HoldHeight"/>); when the scene ends,
+        /// normal tracking.
         /// </summary>
-        private static void Disengage()
+        private static void Disengage(bool sceneEnds)
         {
+            Camera.onPreCull -= HoldHeight;
             if (!_engaged) return;
             Camera.onPreCull -= Pin;
-            var eye = LocalPlayer.MainCamTr;
-            if (eye)
+            if (!sceneEnds)
             {
-                _continueFrom = eye.position;
-                _continueHeading = Heading(eye.rotation);
+                _heightFrame = -1;
+                Camera.onPreCull += HoldHeight;
+            }
+            var eye = LocalPlayer.MainCamTr;
+            if (eye && LocalPlayer.Transform)
+            {
+                // Relative to the player: the scene may teleport the player right after (dying: into the cave).
+                _continueFrom = LocalPlayer.Transform.InverseTransformPoint(eye.position);
+                _continueHeading = Mathf.DeltaAngle(LocalPlayer.Transform.eulerAngles.y, Heading(eye.rotation));
                 _continueFrame = Time.frameCount;
             }
             SetPositionalTracking(true);
@@ -136,6 +167,26 @@ namespace VrFixes
             Plugin.Debug("immersive camera: view released, positional tracking back on");
         }
 
+        private static int _heightFrame = -1;
+        private static float _height;
+
+        /// <summary>
+        /// Released within a scene: the headset moves the view horizontally, but its height stays at the character's
+        /// head (sliding down a rope, the body drops faster than the view would follow, and the view ended up inside
+        /// it). Right before the eye camera renders, the rig is moved up or down so the eye is at the head's height.
+        /// </summary>
+        private static void HoldHeight(Camera cam)
+        {
+            if (cam != LocalPlayer.MainCam || !_rig) return;
+            if (_heightFrame != Time.frameCount)
+            {
+                if (!FlatView(out var position, out _)) return;
+                _height = _heightFrame < 0 ? position.y : Mathf.Lerp(_height, position.y, Follow(PositionSmoothing));
+                _heightFrame = Time.frameCount;
+            }
+            _rig.position += Vector3.up * (_height - cam.transform.position.y);
+        }
+
         private static Vector3? _continueFrom;
         private static float _continueHeading;
         private static int _continueFrame;
@@ -145,8 +196,12 @@ namespace VrFixes
             var from = _continueFrom.Value;
             _continueFrom = null;
             var vr = LocalPlayer.vrPlayerControl;
-            if (!vr || !vr.VRCameraRig || !LocalPlayer.MainCamTr) return;
-            AlignView(vr.VRCameraRig, LocalPlayer.MainCamTr, from, _continueHeading);
+            var player = LocalPlayer.Transform;
+            if (!vr || !vr.VRCameraRig || !LocalPlayer.MainCamTr || !player) return;
+            var position = player.TransformPoint(from);
+            // Safety net: never carry the view far away (it should be within the player's reach).
+            if ((position - LocalPlayer.MainCamTr.position).sqrMagnitude > 9f) position = LocalPlayer.MainCamTr.position;
+            AlignView(vr.VRCameraRig, LocalPlayer.MainCamTr, position, player.eulerAngles.y + _continueHeading);
         }
 
         /// <summary>
@@ -164,7 +219,7 @@ namespace VrFixes
         }
 
         /// <summary>Smoothing time constants (seconds) of the pinned view; 0 = none.</summary>
-        public static float RotationSmoothing = 0f, PositionSmoothing = 0f;
+        public static float RotationSmoothing = 0.35f, PositionSmoothing = 0.1f;
 
         // Switching between following the head's rotation and the anchor's is blended over this time (flat-screen
         // snaps, but in VR a snap of the whole view is uncomfortable).

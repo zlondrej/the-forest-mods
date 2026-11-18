@@ -62,6 +62,7 @@ namespace VrFixes
 
         private static Case _case;       // the action that started last
         private static bool _wasGhost;   // scene active (ghost mode or a pin) in the previous frame
+        private static Case _sceneCase;  // _case when the active scene started
         private static Case _skipping;   // case whose theatre is being skipped (for logging once)
 
         public static void Apply(Harmony harmony)
@@ -84,6 +85,24 @@ namespace VrFixes
                 prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(ReleaseFromHangingPrefix)));
             harmony.Patch(AccessTools.Method(typeof(VRPlayerControl), "canUpdateMovement"),
                 postfix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(CanUpdateMovementPostfix)));
+            harmony.Patch(AccessTools.Method(typeof(PlayerStats), "DeathInWater"),
+                prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(DeathInWaterPrefix)));
+        }
+
+        private static float _drownedAt = float.NegativeInfinity;
+
+        /// <summary>
+        /// Drowning in single player never marks the player dead, so every drowning tick after it (about once a second)
+        /// runs the drowning death again, and each of those a few seconds later restarts the death animation
+        /// (KillMeFast: cross-fade with no blend, sounds, ghost mode, the rig detached again). The theatre hides it; in
+        /// first person the body flickered between two poses and the scene dragged on. Run it once per death.
+        /// </summary>
+        private static bool DeathInWaterPrefix(PlayerStats __instance)
+        {
+            if (!ForestVR.Enabled || __instance != LocalPlayer.Stats) return true;
+            if (UnityEngine.Time.time - _drownedAt < 30f) return false;
+            _drownedAt = UnityEngine.Time.time;
+            return true;
         }
 
         private static void Started(Case c) => _case = c;
@@ -231,6 +250,35 @@ namespace VrFixes
             if (__result && HeadPin.On) __result = false;
         }
 
+        /// <summary>
+        /// As when the theatre ends (it resets the VR offset's rotation): the VR offset and the rig keep only their turn
+        /// (yaw) under the head anchor. Scenes turn them while the body lies or hangs (the drag-away scene turns the VR
+        /// space to the dragged body, room-scale turns the offset about world up while the anchor is tilted), and the
+        /// tilt stayed after the scene: the whole view was tilted.
+        /// </summary>
+        private static void LevelRig()
+        {
+            var vr = LocalPlayer.vrPlayerControl;
+            if (!vr) return;
+            if (Plugin.Verbose) Plugin.Debug($"immersive camera: tilt before leveling: {Tilts()}");
+            Level(vr.VROffsetTransform);
+            Level(vr.VRCameraRig);
+        }
+
+        private static void Level(Transform t)
+        {
+            if (t) t.localRotation = Quaternion.Euler(0f, HeadPin.Heading(t.localRotation), 0f);
+        }
+
+        // How far each part of the view's chain leans from upright (debug).
+        private static string Tilts()
+        {
+            var vr = LocalPlayer.vrPlayerControl;
+            string Tilt(Transform t) => t ? $"{Vector3.Angle(t.up, Vector3.up):0}°" : "-";
+            return $"player={Tilt(LocalPlayer.Transform)} anchor={Tilt(LocalPlayer.CamFollowHead ? LocalPlayer.CamFollowHead.transform : null)} " +
+                   $"offset={Tilt(vr ? vr.VROffsetTransform : null)} rig={Tilt(vr ? vr.VRCameraRig : null)}";
+        }
+
         /// <summary>As when the theatre ends: the rig is moved so the eye is (horizontally) over the body's camera origin.</summary>
         private static void RecenterOnBody()
         {
@@ -267,6 +315,23 @@ namespace VrFixes
         private static bool _loggedGhost;
         private static VRTheatreController _theatre; // LocalPlayer.vrTheatreController doesn't exist in the flat-screen build
 
+        /// <summary>
+        /// Every frame (from the plugin): if the player went away mid-scene (drowning ends in a game over that loads the
+        /// menu while the scene still runs), undo what would otherwise outlive it, positional tracking above all.
+        /// </summary>
+        public static void CheckPlayerGone()
+        {
+            if (!ForestVR.Enabled || (!HeadPin.On && !BodyView.Shown && _case == Case.None)) return;
+            if (LocalPlayer.vrPlayerControl) return; // Unity null: destroyed with the game scene
+            HeadPin.Abandon();
+            BodyView.Abandon();
+            _case = _skipping = _sceneCase = Case.None;
+            _wasGhost = _aligned = _setGhostFlag = _loggedGhost = false;
+            _drownedAt = float.NegativeInfinity;
+            _theatre = null;
+            Plugin.Debug("immersive camera: player gone, scene state reset");
+        }
+
         /// <summary>Debug: the state that decides how a scene plays (to tell why one went wrong).</summary>
         private static void LogState(VRTheatreController theatre, string what)
         {
@@ -280,7 +345,8 @@ namespace VrFixes
                              $"followAnim={(LocalPlayer.CamFollowHead && LocalPlayer.CamFollowHead.followAnim)} " +
                              $"hanging={(animator && animator.GetBool("hangingBool"))} upsideDown={(LocalPlayer.AnimControl && LocalPlayer.AnimControl.upsideDown)} " +
                              $"fpCharacter={(LocalPlayer.FpCharacter && LocalPlayer.FpCharacter.enabled)} " +
-                             $"playerYaw={(LocalPlayer.Transform ? LocalPlayer.Transform.eulerAngles.y : 0f):0} viewYaw={(LocalPlayer.MainCamTr ? HeadPin.Heading(LocalPlayer.MainCamTr.rotation) : 0f):0}");
+                             $"playerYaw={(LocalPlayer.Transform ? LocalPlayer.Transform.eulerAngles.y : 0f):0} viewYaw={(LocalPlayer.MainCamTr ? HeadPin.Heading(LocalPlayer.MainCamTr.rotation) : 0f):0} " +
+                             $"tilt: {Tilts()}");
             }
             catch (Exception e) { Plugin.Debug($"immersive camera: {what} (state not available: {e.Message})"); }
         }
@@ -306,6 +372,7 @@ namespace VrFixes
                 if (_skipping != Case.None && !__instance.theatreOn)
                 {
                     KeepRigOnHead(__instance);
+                    LevelRig();
                     RecenterOnBody();
                     __instance.vrPos1 = null;
                     __instance.vrPos2 = null;
@@ -316,8 +383,15 @@ namespace VrFixes
                 _setGhostFlag = false;
                 _aligned = false;
                 if (Plugin.Verbose) LogState(__instance, "scene ended");
-                _case = Case.None;
+                // Forget the case, unless the next scene already noted its own (dying outside the caves, the death
+                // scene ends in the very frame the drag-away scene starts).
+                if (_case == _sceneCase) _case = Case.None;
+                else Plugin.Debug($"immersive camera: next scene already started: {_case}");
                 _skipping = Case.None;
+            }
+            else if (!_wasGhost && active)
+            {
+                _sceneCase = _case;
             }
             _wasGhost = active;
         }

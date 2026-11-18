@@ -25,6 +25,64 @@ namespace VrFixes
                 prefix: new HarmonyMethod(typeof(DebugPatches), nameof(InventoryThrowPrefix)));
             harmony.Patch(AccessTools.Method(typeof(playerAnimatorControl), "Update"),
                 postfix: new HarmonyMethod(typeof(DebugPatches), nameof(RopeStatePostfix)));
+            harmony.Patch(AccessTools.Method(typeof(Explode), "RunExplode"),
+                prefix: new HarmonyMethod(typeof(DebugPatches), nameof(RunExplodePrefix)));
+            harmony.Patch(AccessTools.Method(typeof(PlayerStats), "Explosion", new[] { typeof(float), typeof(bool) }),
+                prefix: new HarmonyMethod(typeof(DebugPatches), nameof(PlayerExplosionPrefix)),
+                postfix: new HarmonyMethod(typeof(DebugPatches), nameof(PlayerHealthPostfix)));
+            harmony.Patch(AccessTools.Method(typeof(PlayerStats), nameof(PlayerStats.Burn)),
+                prefix: new HarmonyMethod(typeof(DebugPatches), nameof(PlayerBurnPrefix)));
+            harmony.Patch(AccessTools.Method(typeof(PlayerStats), nameof(PlayerStats.Hit)),
+                prefix: new HarmonyMethod(typeof(DebugPatches), nameof(PlayerHitPrefix)),
+                postfix: new HarmonyMethod(typeof(DebugPatches), nameof(PlayerHealthPostfix)));
+        }
+
+        // ------------------------------------------------------------------ self damage
+
+        /// <summary>
+        /// An explosion goes off: how far the player is, and whether the player's hit collider (tag playerHitDetect,
+        /// what explosions damage) is inside its radius.
+        /// </summary>
+        private static void RunExplodePrefix(Explode __instance)
+        {
+            if (!LocalPlayer.Transform) return;
+            var position = __instance.transform.position;
+            int hitDetect = 0;
+            string hitDetectInfo = "";
+            foreach (var collider in Physics.OverlapSphere(position, __instance.radius))
+            {
+                if (!collider || !collider.CompareTag("playerHitDetect")) continue;
+                hitDetect++;
+                hitDetectInfo += $" '{collider.name}' {Vector3.Distance(position, collider.transform.position):0.0} m (enabled={collider.enabled}, under player={collider.transform.IsChildOf(LocalPlayer.Transform)})";
+            }
+            Plugin.Debug($"self damage: explosion '{__instance.name}' radius={__instance.radius:0.0} m, player {Vector3.Distance(position, LocalPlayer.Transform.position):0.0} m away, " +
+                         $"player hit colliders in range: {hitDetect}{hitDetectInfo}");
+        }
+
+        private static void PlayerExplosionPrefix(PlayerStats __instance, float dist, bool fromPlayer)
+        {
+            Plugin.Debug($"self damage: player Explosion(dist={dist:0.0}, fromPlayer={fromPlayer}) health={__instance.Health:0.0} " +
+                         $"alreadyExploding={Traverse.Create(__instance).Field("isExplode").GetValue()} view={(LocalPlayer.Inventory ? LocalPlayer.Inventory.CurrentView.ToString() : "-")} " +
+                         $"godMode={Cheats.GodMode}");
+        }
+
+        private static void PlayerBurnPrefix(PlayerStats __instance)
+        {
+            // IsLit is private; LocalPlayer.WaterViz is a field in one build and a property in the other. Fire calls this
+            // every frame while it touches the player: log only catching fire.
+            if (Traverse.Create(__instance).Field("IsLit").GetValue() is bool lit && lit) return;
+            Plugin.Debug($"self damage: player Burn() health={__instance.Health:0.0} alreadyLit={Traverse.Create(__instance).Field("IsLit").GetValue()} " +
+                         $"swimming={(LocalPlayer.AnimControl && LocalPlayer.AnimControl.swimming)}");
+        }
+
+        private static void PlayerHitPrefix(PlayerStats __instance, int damage, bool ignoreArmor)
+        {
+            Plugin.Debug($"self damage: player Hit(damage={damage}, ignoreArmor={ignoreArmor}) health={__instance.Health:0.0} godMode={Cheats.GodMode}");
+        }
+
+        private static void PlayerHealthPostfix(PlayerStats __instance)
+        {
+            Plugin.Debug($"self damage: player health now {__instance.Health:0.0}");
         }
 
         // ------------------------------------------------------------------ rope

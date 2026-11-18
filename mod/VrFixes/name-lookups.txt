@@ -20,3 +20,8 @@ camFollowHead::headJnt
 playerScriptSetup::playerCam
 PlayerStats::releaseFromHanging
 VRPlayerControl::canUpdateMovement
+Explode::RunExplode
+PlayerStats::Explosion
+?PlayerStats::IsLit
+PlayerStats::isExplode
+PlayerStats::DeathInWater

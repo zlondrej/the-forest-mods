@@ -70,6 +70,13 @@ namespace VrFixes
             return false;
         }
 
+        /// <summary>The player is gone (its renderers with it): forget them.</summary>
+        public static void Abandon()
+        {
+            Changed.Clear();
+            _shown = false;
+        }
+
         public static void Restore()
         {
             if (!_shown) return;

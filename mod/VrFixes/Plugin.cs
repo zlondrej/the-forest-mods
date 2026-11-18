@@ -146,7 +146,7 @@ namespace VrFixes
             _positionSmoothing = Config.Bind("ImmersiveCameraRotationOnly", "PositionSmoothing", HeadPin.PositionSmoothing,
                 "Seconds the pinned view takes to follow the character's head position; 0 = no smoothing (larger values lag behind, the view may dip into the body). Changes apply while the game runs.");
             _climbingFreeOnRope = Config.Bind("ImmersiveCameraRotationOnly", "ClimbingFreeOnRope", ImmersiveCamera.ClimbingFreeOnRope,
-                "With Climbing = true here: the view is pinned only while getting onto and off the rope or wall; while climbing, normal headset tracking. false = pinned the whole climb. Changes apply while the game runs (from the next climb).");
+                "With Climbing = true here: the view is pinned only while getting onto and off the rope or wall; while climbing, the headset moves the view horizontally and turns it, its height stays at the character's head. false = pinned the whole climb. Changes apply while the game runs (from the next climb).");
         }
 
         private BepInEx.Configuration.ConfigEntry<bool> _alignView, _climbingFreeOnRope;
@@ -158,6 +158,11 @@ namespace VrFixes
         private void Update()
         {
             CheckConfigFile();
+            if (_immersiveCameraPatched)
+            {
+                try { ImmersiveCamera.CheckPlayerGone(); }
+                catch (Exception e) { Log.LogError($"ImmersiveCamera: {e}"); }
+            }
             if (!_airHud || Time.unscaledTime < _nextTick) return;
             _nextTick = Time.unscaledTime + 0.5f;
             try { AirHud.Tick(); }
