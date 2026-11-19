@@ -36,3 +36,5 @@ FMODCommon::PlayOneshot
 ?TheForest.Utils.Input/Actions::Craft
 TheForest.UI.ActionIconUISprite::_action
 ?TheForest.UI.ActionIconUISprite::_vrAction
+VRPlayerControl::LeftHand
+VRPlayerControl::RightHand

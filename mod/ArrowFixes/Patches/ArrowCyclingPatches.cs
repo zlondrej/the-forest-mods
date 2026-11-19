@@ -185,39 +185,28 @@ namespace ArrowFixes
                 return lookY < -0.85f;
             }
             var bowTr = bowView._held ? bowView._held.transform : bow.transform;
-            var toBow = BowCentre(bowTr) - cam.position;
+            var hand = BowHand(bowTr.position);
+            var toBow = (hand ? hand.position : bowTr.position) - cam.position;
             float angle = toBow.sqrMagnitude > 1e-6f ? Vector3.Angle(cam.forward, toBow) : 0f;
-            info = $"angle to bow={angle:0}° (needs < {VrBowLookAngle:0}°)";
+            info = $"angle to the bow hand={angle:0}° (needs < {VrBowLookAngle:0}°)";
             return angle < VrBowLookAngle;
         }
 
-        private static Transform _bowRoot;
-        private static Renderer[] _bowRenderers;
-
         /// <summary>
-        /// Where the bow is: the middle of what's drawn of it (its meshes' bounds). The held bow object's own position
-        /// lies well above the bow, and looking there to switch was much too high.
+        /// The VR controller holding the bow (the one nearer the bow, so left-handed play works too). Looking at it is
+        /// looking at the bow; the held bow object's own position lies well above the bow (too high to look at).
+        /// The controllers' type (Valve's Hand) differs per build, so they are read as plain components.
         /// </summary>
-        private static Vector3 BowCentre(Transform bow)
+        private static Transform BowHand(Vector3 bow)
         {
-            if (bow != _bowRoot || _bowRenderers == null)
-            {
-                _bowRoot = bow;
-                _bowRenderers = bow.GetComponentsInChildren<Renderer>(true);
-            }
-            bool any = false;
-            var bounds = default(Bounds);
-            foreach (var r in _bowRenderers)
-            {
-                if (!r || !r.enabled || !r.gameObject.activeInHierarchy || r is ParticleSystemRenderer) continue;
-                if (any) bounds.Encapsulate(r.bounds);
-                else
-                {
-                    bounds = r.bounds;
-                    any = true;
-                }
-            }
-            return any ? bounds.center : bow.position;
+            var vr = LocalPlayer.vrPlayerControl;
+            if (!vr) return null;
+            Transform Hand(string field) => Traverse.Create(vr).Field(field).GetValue() is Component c && c ? c.transform : null;
+            var left = Hand("LeftHand");
+            var right = Hand("RightHand");
+            if (!left) return right;
+            if (!right) return left;
+            return (left.position - bow).sqrMagnitude <= (right.position - bow).sqrMagnitude ? left : right;
         }
 
         /// <summary>
