@@ -390,10 +390,65 @@ namespace VrFixes
             }
             if (!_smoothing || !Finite(_outPosition) || !Finite(_outRotation)) return;
             // The pause menu stands upright in the world: with the view following an upside-down head (hanging) it
-            // was upside down. While it is open the view stands upright too, facing the same way, at the same spot.
+            // was upside down. While it is open the view stands upright too, facing the same way, at the same spot,
+            // but at the height of the menu's screen (placed for a standing player, it was above a hanging head).
             bool paused = LocalPlayer.Inventory && LocalPlayer.Inventory.CurrentView == TheForest.Items.Inventory.PlayerInventory.PlayerViews.Pause;
             _rig.rotation = (paused ? Quaternion.Euler(0f, Heading(_outRotation), 0f) : _outRotation) * _yawCorrection;
-            _rig.position += _outPosition - cam.transform.position;
+            var eyeAt = _outPosition;
+            if (paused)
+            {
+                var screen = MenuScreen();
+                if (screen) eyeAt.y = screen.bounds.center.y;
+            }
+            else
+            {
+                _menuScreenLooked = false;
+                _menuScreenTries = 0;
+            }
+            _rig.position += eyeAt - cam.transform.position;
+        }
+
+        private static Renderer _menuScreen;
+        private static bool _menuScreenLooked;
+
+        private static int _menuScreenTries;
+
+        /// <summary>
+        /// The VR pause menu is drawn by its own camera into a texture, shown on a screen in the world ("VR_PauseMenu").
+        /// The screen switches on a frame or two after the menu opens (the first time it wasn't there yet), so it is
+        /// looked for every frame until found: by name, and every 15 frames also by the texture it shows.
+        /// </summary>
+        private static Renderer MenuScreen()
+        {
+            if (_menuScreenLooked) return _menuScreen;
+            _menuScreen = null;
+            var go = GameObject.Find("VR_PauseMenu");
+            if (go) _menuScreen = go.GetComponent<Renderer>();
+            var hud = Scene.HudGui;
+            var texture = hud && hud.VRPauseMenuCam ? hud.VRPauseMenuCam.targetTexture : null;
+            if (!_menuScreen && texture && _menuScreenTries % 15 == 0)
+            {
+                foreach (var r in Object.FindObjectsOfType<Renderer>())
+                {
+                    if (!r || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                    foreach (var m in r.sharedMaterials)
+                        if (m && m.HasProperty("_MainTex") && m.mainTexture == texture) { _menuScreen = r; break; }
+                    if (_menuScreen) break;
+                }
+            }
+            _menuScreenTries++;
+            var eye = LocalPlayer.MainCamTr;
+            if (_menuScreen)
+            {
+                _menuScreenLooked = true;
+                if (eye) Plugin.Debug($"immersive camera: pause menu screen '{_menuScreen.name}' at {(_menuScreen.bounds.center - eye.position).ToString("F2")} from the eye " +
+                                      $"(found after {_menuScreenTries} frame(s)), view moved to its height");
+            }
+            else if (_menuScreenTries == 120)
+            {
+                Plugin.Debug($"immersive camera: pause menu screen still not found (menu camera texture: {(texture ? texture.name : "none")}), view stays at the head");
+            }
+            return _menuScreen;
         }
 
         private static float _nextViewLog;

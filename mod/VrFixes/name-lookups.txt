@@ -30,3 +30,4 @@ VRPlayerControl::LeftHand
 VRPlayerControl::RightHand
 TheForest.Items.Inventory.PlayerInventory::Update
 ?TheForest.Items.Inventory.PlayerInventory::_inventoryToggledTime
+HudGui::VRPauseMenuCam
