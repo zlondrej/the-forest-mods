@@ -35,6 +35,32 @@ namespace VrFixes
             harmony.Patch(AccessTools.Method(typeof(PlayerStats), nameof(PlayerStats.Hit)),
                 prefix: new HarmonyMethod(typeof(DebugPatches), nameof(PlayerHitPrefix)),
                 postfix: new HarmonyMethod(typeof(DebugPatches), nameof(PlayerHealthPostfix)));
+            harmony.Patch(AccessTools.Method(typeof(HudGui), nameof(HudGui.TogglePauseMenu)),
+                postfix: new HarmonyMethod(typeof(DebugPatches), nameof(PauseMenuPostfix)));
+        }
+
+        // ------------------------------------------------------------------ pause menu
+
+        /// <summary>
+        /// VR pause menu opened: where the eye is against the controllers and the body, and how the VR rig and the
+        /// skeleton sit (the view was off from the controllers after the plane intro).
+        /// </summary>
+        private static void PauseMenuPostfix(bool on)
+        {
+            if (!on || !ForestVR.Enabled) return;
+            var vr = LocalPlayer.vrPlayerControl;
+            var eye = LocalPlayer.MainCamTr;
+            if (!vr || !eye) return;
+            string Rel(Transform t) => t ? (t.position - eye.position).ToString("F2") : "-";
+            string Local(Transform t) => t ? $"{t.localPosition.ToString("F2")} rot {t.localEulerAngles.ToString("F0")} under '{(t.parent ? t.parent.name : "-")}'" : "-";
+            var joints = LocalPlayer.vrAdapter ? LocalPlayer.vrAdapter.JointsOffsetTransform : null;
+            // The controllers' type (Valve's Hand) is in another assembly in the VR build: read them as plain components.
+            Transform Hand(string field) => Traverse.Create(vr).Field(field).GetValue() is Component c && c ? c.transform : null;
+            Plugin.Debug("pause menu: relative to the eye: left hand " + Rel(Hand("LeftHand")) +
+                         ", right hand " + Rel(Hand("RightHand")) +
+                         ", camera origin " + Rel(vr.VRCameraOrigin) + ", player " + Rel(LocalPlayer.Transform) +
+                         ", head joint " + Rel(LocalPlayer.CamFollowHead ? LocalPlayer.CamFollowHead.headJnt : null));
+            Plugin.Debug($"pause menu: eye local {eye.localPosition.ToString("F2")}; rig {Local(vr.VRCameraRig)}; offset {Local(vr.VROffsetTransform)}; skeleton {Local(joints)}");
         }
 
         // ------------------------------------------------------------------ self damage

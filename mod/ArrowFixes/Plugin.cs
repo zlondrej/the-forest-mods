@@ -67,6 +67,12 @@ namespace ArrowFixes
             {
                 Try("VrLighterIgnitesArrow", () => VrArrowLighting.Apply(harmony));
             }
+
+            // Every setting and its value, so a test run's log says what it ran with.
+            var settings = new System.Collections.Generic.List<string>();
+            foreach (var pair in Config) settings.Add($"  [{pair.Key.Section}] {pair.Key.Key} = {pair.Value.BoxedValue}");
+            settings.Sort(StringComparer.Ordinal);
+            Log.LogInfo("Settings at game start:\n" + string.Join("\n", settings.ToArray()));
         }
 
         private bool _basketTypes;

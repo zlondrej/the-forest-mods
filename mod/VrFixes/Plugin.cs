@@ -41,6 +41,10 @@ namespace VrFixes
                 "VR throwing (spear, molotov, bombs, rocks, balls) only throws when you release the throw trigger; vanilla also threw when you pressed it while your hand was moving, often backwards.",
                 typeof(ThrowOnReleasePatch));
 
+            Apply(harmony, "InventoryButtonOpensMenu",
+                "VR: a short press of the inventory button opens the pause menu where the inventory can't open (during animations), and underwater and while hanging in the cave (instead of the inventory), as Esc does in flat-screen; vanilla VR only reaches the menu through the inventory.",
+                typeof(MenuButtonPatch));
+
             _airHud = Config.Bind("Fixes", "UnderwaterAirBar", true,
                 "Show the underwater air bar in VR, in front of the view (vanilla VR never shows it).").Value;
             AirHud.Distance = Config.Bind("UnderwaterAirBar", "Distance", AirHud.Distance, "Distance from the eyes, in metres.").Value;
@@ -53,6 +57,7 @@ namespace VrFixes
             BindImmersiveCamera();
             ApplyImmersiveCameraSettings();
             if (!_immersiveCameraPatched) Log.LogInfo("ImmersiveCamera: not applied (every case set to theatre)");
+            LogSettings("Settings at game start");
             _configTime = ConfigTime();
         }
 
@@ -74,6 +79,10 @@ namespace VrFixes
             if (_climbingFreeOnRope != null) ImmersiveCamera.ClimbingFreeOnRope = _climbingFreeOnRope.Value;
             if (_rotationSmoothing != null) HeadPin.RotationSmoothing = Mathf.Max(0f, _rotationSmoothing.Value);
             if (_positionSmoothing != null) HeadPin.PositionSmoothing = Mathf.Max(0f, _positionSmoothing.Value);
+            if (_rotationSpeedup != null) HeadPin.RotationSmoothingSpeedup = Mathf.Max(0f, _rotationSpeedup.Value);
+            if (_positionSpeedup != null) HeadPin.PositionSmoothingSpeedup = Mathf.Max(0f, _positionSpeedup.Value);
+            if (_maxPositionLag != null) HeadPin.MaxPositionLag = Mathf.Max(0f, _maxPositionLag.Value);
+            if (_maxRotationLag != null) HeadPin.MaxRotationLag = Mathf.Max(0f, _maxRotationLag.Value);
             if (_immersiveCameraPatched || !ImmersiveCamera.Immersive.Values.Any(v => v)) return;
             _immersiveCameraPatched = true; // also on failure: don't retry every reload
             try { ImmersiveCamera.Apply(_harmony); Log.LogInfo("ImmersiveCamera: applied"); }
@@ -101,11 +110,17 @@ namespace VrFixes
             {
                 Config.Reload();
                 ApplyImmersiveCameraSettings();
-                Log.LogInfo($"Config reloaded: ShowBody={BodyView.Enabled}, immersive camera " + string.Join(", ", ImmersiveCamera.Immersive
-                    .Select(p => $"{p.Key}={(p.Value ? (ImmersiveCamera.RotationOnly.TryGetValue(p.Key, out var r) && r ? "first person, rotation only" : "first person") : "theatre")}")
-                    .ToArray()));
+                LogSettings("Config reloaded (only [ImmersiveCamera...] apply now, the rest at the next game start)");
             }
             catch (Exception e) { Log.LogError($"Config reload failed: {e}"); }
+        }
+
+        /// <summary>Every setting and its value, so a test run's log says what it ran with.</summary>
+        private void LogSettings(string when)
+        {
+            var lines = Config.OrderBy(p => p.Key.Section).ThenBy(p => p.Key.Key)
+                .Select(p => $"  [{p.Key.Section}] {p.Key.Key} = {p.Value.BoxedValue}");
+            Log.LogInfo(when + ":\n" + string.Join("\n", lines.ToArray()));
         }
 
         /// <summary>
@@ -142,15 +157,24 @@ namespace VrFixes
             _alignView = Config.Bind("ImmersiveCamera", "AlignViewAtStart", true,
                 "First-person scenes with normal headset tracking: when the scene starts, turn and move your view to where the character looks and stands (your height stays). Changes apply while the game runs.");
             _rotationSmoothing = Config.Bind("ImmersiveCameraRotationOnly", "RotationSmoothing", HeadPin.RotationSmoothing,
-                "Seconds the pinned view takes to follow the character's head rotation (smooths its small animated movements); 0 = no smoothing. Changes apply while the game runs.");
+                "Seconds the pinned view takes to follow the character's head rotation while the head moves slowly (smooths its small animated movements); 0 = no smoothing. Changes apply while the game runs.");
             _positionSmoothing = Config.Bind("ImmersiveCameraRotationOnly", "PositionSmoothing", HeadPin.PositionSmoothing,
-                "Seconds the pinned view takes to follow the character's head position; 0 = no smoothing (larger values lag behind, the view may dip into the body). Changes apply while the game runs.");
+                "Seconds the pinned view takes to follow the character's head position while the head moves slowly; 0 = no smoothing. Changes apply while the game runs.");
+            _rotationSpeedup = Config.Bind("ImmersiveCameraRotationOnly", "RotationSmoothingSpeedup", HeadPin.RotationSmoothingSpeedup,
+                "How much less the rotation is smoothed when the character's head turns fast, so large movements don't drag behind (added follow rate in Hz per degree/s). 0 = the same smoothing at any speed. Changes apply while the game runs.");
+            _positionSpeedup = Config.Bind("ImmersiveCameraRotationOnly", "PositionSmoothingSpeedup", HeadPin.PositionSmoothingSpeedup,
+                "How much less the position is smoothed when the character's head moves fast, so large movements don't drag behind (added follow rate in Hz per m/s). 0 = the same smoothing at any speed. Changes apply while the game runs.");
+            _maxPositionLag = Config.Bind("ImmersiveCameraRotationOnly", "MaxPositionLag", HeadPin.MaxPositionLag,
+                "The smoothed view never trails the character's head by more than this many metres, so it can't sink into the body on sudden movements (small sways are smaller and still smoothed). 0 = no limit. Changes apply while the game runs.");
+            _maxRotationLag = Config.Bind("ImmersiveCameraRotationOnly", "MaxRotationLag", HeadPin.MaxRotationLag,
+                "The smoothed view never trails the character's head rotation by more than this many degrees. 0 = no limit. Changes apply while the game runs.");
             _climbingFreeOnRope = Config.Bind("ImmersiveCameraRotationOnly", "ClimbingFreeOnRope", ImmersiveCamera.ClimbingFreeOnRope,
                 "With Climbing = true here: the view is pinned only while getting onto and off the rope or wall; while climbing, the headset moves the view horizontally and turns it, its height stays at the character's head. false = pinned the whole climb. Changes apply while the game runs (from the next climb).");
         }
 
         private BepInEx.Configuration.ConfigEntry<bool> _alignView, _climbingFreeOnRope;
-        private BepInEx.Configuration.ConfigEntry<float> _rotationSmoothing, _positionSmoothing;
+        private BepInEx.Configuration.ConfigEntry<float> _rotationSmoothing, _positionSmoothing, _rotationSpeedup, _positionSpeedup,
+            _maxPositionLag, _maxRotationLag;
 
         private bool _airHud;
         private float _nextTick;
@@ -163,7 +187,10 @@ namespace VrFixes
                 try { ImmersiveCamera.CheckPlayerGone(); }
                 catch (Exception e) { Log.LogError($"ImmersiveCamera: {e}"); }
             }
-            if (!_airHud || Time.unscaledTime < _nextTick) return;
+            if (!_airHud) return;
+            try { AirHud.UpdateCamera(); }
+            catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
+            if (Time.unscaledTime < _nextTick) return;
             _nextTick = Time.unscaledTime + 0.5f;
             try { AirHud.Tick(); }
             catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }

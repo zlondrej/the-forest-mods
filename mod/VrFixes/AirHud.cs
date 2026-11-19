@@ -1,3 +1,4 @@
+using TheForest.Items.Inventory;
 using TheForest.Utils;
 using UnityEngine;
 
@@ -20,6 +21,25 @@ namespace VrFixes
         private static bool _gaveUp;
         private static bool _setUpBlurred;
         private static Camera _sharpCamera;
+
+        /// <summary>
+        /// Every frame: the sharp camera draws only while the bar shows (underwater, in the world view). It draws the
+        /// whole HUD layer, and the VR pause menu puts your hands on that layer: drawn again by this camera, they sat off
+        /// from where the eye camera draws them (after the plane intro the menu looked as if the head were higher).
+        /// </summary>
+        public static void UpdateCamera()
+        {
+            if (!_sharpCamera) return;
+            var hud = Scene.HudGui;
+            bool barShown = _root && _root.activeInHierarchy && hud &&
+                            ((hud.AirReserve && hud.AirReserve.gameObject.activeInHierarchy) ||
+                             (hud.AirReserveOutline && hud.AirReserveOutline.activeInHierarchy));
+            bool world = LocalPlayer.Inventory && LocalPlayer.Inventory.CurrentView == PlayerInventory.PlayerViews.World;
+            bool on = barShown && world;
+            if (_sharpCamera.enabled == on) return;
+            _sharpCamera.enabled = on;
+            Plugin.Debug($"air bar: its camera {(on ? "on" : "off")}");
+        }
 
         /// <summary>Called a few times per second; sets the panel up once per HUD/player (they are recreated on load).</summary>
         public static void Tick()
@@ -129,13 +149,14 @@ namespace VrFixes
             cam.useOcclusionCulling = false;
             cam.nearClipPlane = 0.05f;
             cam.farClipPlane = eye.farClipPlane;
+            cam.enabled = false; // UpdateCamera turns it on while the bar shows
             return cam;
         }
 
         // ------------------------------------------------------------------ diagnostics ([Debug] VerboseLogging)
 
         // A field in the flat-screen build, a property in VR: read it by name.
-        private static WaterViz WaterVizNow()
+        internal static WaterViz WaterVizNow()
         {
             var t = HarmonyLib.Traverse.Create(typeof(LocalPlayer));
             var member = t.Property("WaterViz");

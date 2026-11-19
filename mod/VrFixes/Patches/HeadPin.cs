@@ -124,7 +124,11 @@ namespace VrFixes
             _rigLocalRotation = _rig.localRotation;
             // Where the player looks relative to the rig, flattened to a heading (yaw only, no pitch or roll): that heading
             // becomes "forward".
-            _yawCorrection = Quaternion.Euler(0f, -Heading(Quaternion.Inverse(_rig.rotation) * LocalPlayer.MainCamTr.rotation), 0f);
+            var look = Quaternion.Inverse(_rig.rotation) * LocalPlayer.MainCamTr.rotation;
+            _yawCorrection = Quaternion.Euler(0f, -Heading(look), 0f);
+            if (Plugin.Verbose)
+                Plugin.Debug($"immersive camera: pin forward taken from your view: heading {Heading(look):0}° in the play area, " +
+                             $"looking {Mathf.Asin(Mathf.Clamp((look * Vector3.forward).y, -1f, 1f)) * Mathf.Rad2Deg:0}° up");
             _smoothing = false;
             _smoothedFrame = -1;
             SetPositionalTracking(false);
@@ -168,7 +172,7 @@ namespace VrFixes
         }
 
         private static int _heightFrame = -1;
-        private static float _height;
+        private static float _height, _heightWorld;
 
         /// <summary>
         /// Released within a scene: the headset moves the view horizontally, but its height stays at the character's
@@ -181,10 +185,17 @@ namespace VrFixes
             if (_heightFrame != Time.frameCount)
             {
                 if (!FlatView(out var position, out _)) return;
-                _height = _heightFrame < 0 ? position.y : Mathf.Lerp(_height, position.y, Follow(PositionSmoothing));
+                // Relative to the body (smoothed in the world it trailed the sliding body): the head's height above the
+                // body root, smoothed, and never more than MaxPositionLag off.
+                var body = BodyFrame();
+                float baseY = body ? body.position.y : 0f;
+                float target = position.y - baseY;
+                _height = _heightFrame < 0 ? target : Mathf.Lerp(_height, target, Follow(PositionSmoothing));
+                if (MaxPositionLag > 0f) _height = Mathf.Clamp(_height, target - MaxPositionLag, target + MaxPositionLag);
                 _heightFrame = Time.frameCount;
+                _heightWorld = baseY + _height;
             }
-            _rig.position += Vector3.up * (_height - cam.transform.position.y);
+            _rig.position += Vector3.up * (_heightWorld - cam.transform.position.y);
         }
 
         private static Vector3? _continueFrom;
@@ -218,8 +229,32 @@ namespace VrFixes
             Plugin.Debug($"immersive camera: view turned {turn:0}° and moved {offset.magnitude:0.00} m");
         }
 
-        /// <summary>Smoothing time constants (seconds) of the pinned view; 0 = none.</summary>
-        public static float RotationSmoothing = 0.35f, PositionSmoothing = 0.1f;
+        /// <summary>Smoothing time constants (seconds) of the pinned view while the head is still; 0 = none.</summary>
+        public static float RotationSmoothing = 0.5f, PositionSmoothing = 0.5f;
+
+        /// <summary>
+        /// Adaptive smoothing (a "one euro" filter): the faster the animated head moves, the less it is smoothed, so
+        /// small sways are smoothed out but large movements are followed without dragging behind. Added follow rate,
+        /// in Hz per degree/s (rotation) and per m/s (position); 0 = the same smoothing at any speed.
+        /// </summary>
+        public static float RotationSmoothingSpeedup = 0f, PositionSmoothingSpeedup = 0f;
+
+        /// <summary>The smoothed view never trails the head by more than this (metres, degrees); 0 = no limit.</summary>
+        public static float MaxPositionLag = 0.05f, MaxRotationLag = 15f;
+
+        private const float SpeedSmoothing = 0.1f;
+        private static float _nextLagLog;
+        private static float _rotationSpeed, _positionSpeed;
+        private static Vector3 _lastPosition;
+        private static Quaternion _lastRotation;
+
+        // Time constant for this speed: the follow rate (1 / 2π·tau) at rest, plus speedup × speed.
+        private static float Adaptive(float tauAtRest, float speedup, float speed)
+        {
+            if (tauAtRest <= 0f) return 0f;
+            float rate = 1f / (2f * Mathf.PI * tauAtRest) + Mathf.Max(0f, speedup) * speed;
+            return 1f / (2f * Mathf.PI * rate);
+        }
 
         // Switching between following the head's rotation and the anchor's is blended over this time (flat-screen
         // snaps, but in VR a snap of the whole view is uncomfortable).
@@ -266,48 +301,156 @@ namespace VrFixes
             if (_smoothedFrame != Time.frameCount)
             {
                 _smoothedFrame = Time.frameCount;
-                if (!FlatView(out var position, out var rotation, out bool followsHead)) return;
+                if (!FlatView(out var worldPosition, out var worldRotation, out bool followsHead)) return;
                 if (_smoothing && followsHead != _followedHead)
                 {
-                    _blendFrom = _smoothRotation;
+                    _blendFrom = _outRotation;
                     _blendStart = Time.time;
+                }
+                if (Plugin.Verbose && (followsHead != _followedHead || Time.unscaledTime >= _nextViewLog))
+                {
+                    _nextViewLog = Time.unscaledTime + 1f;
+                    LogViewSource(followsHead, worldRotation);
                 }
                 _followedHead = followsHead;
                 float blend = (Time.time - _blendStart) / SwitchBlendTime;
-                if (blend < 1f) rotation = Quaternion.Slerp(_blendFrom, rotation, Mathf.SmoothStep(0f, 1f, blend));
+                if (blend < 1f) worldRotation = Quaternion.Slerp(_blendFrom, worldRotation, Mathf.SmoothStep(0f, 1f, blend));
+
+                // Smoothed relative to the body (the animated character root), not in the world: when the whole body
+                // moves (dragged away, carried by the animation, teleported) the view comes along exactly; only the
+                // head's own sways relative to the body are smoothed. Smoothing in the world trailed a moving body by
+                // speed × smoothing time (dragged head first, the view sat in the neck the whole way).
+                var body = BodyFrame();
+                var position = body ? body.InverseTransformPoint(worldPosition) : worldPosition;
+                var rotation = body ? Quaternion.Inverse(body.rotation) * worldRotation : worldRotation;
+                if (!Finite(position) || !Finite(rotation)) return; // nothing sane to follow this frame: keep the view
+                if (body != _smoothBody) _smoothing = false;
+                _smoothBody = body;
+
+                // A NaN in the filter never recovers on its own (it compares false with everything, the teleport check
+                // included) and froze the view until the scene ended: start over from the head.
+                if (_smoothing && !(Finite(_smoothPosition) && Finite(_smoothRotation) && Finite(_lastPosition) && Finite(_lastRotation) &&
+                                    IsFinite(_rotationSpeed) && IsFinite(_positionSpeed)))
+                {
+                    Plugin.Log.LogWarning($"ImmersiveCamera: view smoothing broke (position {_smoothPosition}, rotation {_smoothRotation}, " +
+                                          $"speeds {_rotationSpeed}°/s {_positionSpeed} m/s), restarted from the head");
+                    _smoothing = false;
+                }
+
                 if (!_smoothing || (position - _smoothPosition).sqrMagnitude > 4f) // first frame, or teleported
                 {
-                    _smoothPosition = position;
-                    _smoothRotation = rotation;
+                    _smoothPosition = _lastPosition = position;
+                    _smoothRotation = _lastRotation = rotation;
+                    _rotationSpeed = _positionSpeed = 0f;
                     _smoothing = true;
                 }
-                else
+                else if (Time.deltaTime > 1e-5f)
                 {
-                    _smoothRotation = Quaternion.Slerp(_smoothRotation, rotation, Follow(RotationSmoothing));
-                    _smoothPosition = Vector3.Lerp(_smoothPosition, position, Follow(PositionSmoothing));
+                    // How fast the animated head moves (smoothed a little, so one jerky frame doesn't count as fast).
+                    // Capped: a huge (or infinite) value turns into NaN in the next frame's smoothing (∞ − ∞).
+                    float dt = Time.deltaTime;
+                    _rotationSpeed = Mathf.Lerp(_rotationSpeed, SaneSpeed(Quaternion.Angle(_lastRotation, rotation) / dt, 3600f), Follow(SpeedSmoothing));
+                    _positionSpeed = Mathf.Lerp(_positionSpeed, SaneSpeed((position - _lastPosition).magnitude / dt, 50f), Follow(SpeedSmoothing));
+                    _smoothRotation = Quaternion.Slerp(_smoothRotation, rotation,
+                        Follow(Adaptive(RotationSmoothing, RotationSmoothingSpeedup, _rotationSpeed)));
+                    _smoothPosition = Vector3.Lerp(_smoothPosition, position,
+                        Follow(Adaptive(PositionSmoothing, PositionSmoothingSpeedup, _positionSpeed)));
+                    // Never trail the head by more than this: at the start of a sudden movement the speed estimate is
+                    // still low, and the view lagged into the body (dragged away: the head falls back, the view sank
+                    // into the neck). Jitter is far smaller, so it is still smoothed.
+                    var lag = position - _smoothPosition;
+                    bool capped = false;
+                    if (MaxPositionLag > 0f && lag.magnitude > MaxPositionLag)
+                    {
+                        _smoothPosition = position - lag.normalized * MaxPositionLag;
+                        capped = true;
+                    }
+                    float angle = Quaternion.Angle(_smoothRotation, rotation);
+                    if (MaxRotationLag > 0f && angle > MaxRotationLag)
+                    {
+                        _smoothRotation = Quaternion.Slerp(rotation, _smoothRotation, MaxRotationLag / angle);
+                        capped = true;
+                    }
+                    if (capped && Plugin.Verbose && Time.unscaledTime >= _nextLagLog)
+                    {
+                        _nextLagLog = Time.unscaledTime + 1f;
+                        Plugin.Debug($"immersive camera: smoothing trailed the head by {lag.magnitude:0.000} m / {angle:0}° (head moving " +
+                                     $"{_positionSpeed:0.00} m/s, {_rotationSpeed:0}°/s), held to {MaxPositionLag} m / {MaxRotationLag}°");
+                    }
+                }
+                _lastRotation = rotation;
+                _lastPosition = position;
+                var outPosition = body ? body.TransformPoint(_smoothPosition) : _smoothPosition;
+                var outRotation = body ? body.rotation * _smoothRotation : _smoothRotation;
+                if (Finite(outPosition) && Finite(outRotation))
+                {
+                    _outPosition = outPosition;
+                    _outRotation = outRotation;
                 }
             }
-            if (!_smoothing) return;
-            _rig.rotation = _smoothRotation * _yawCorrection;
-            _rig.position += _smoothPosition - cam.transform.position;
+            if (!_smoothing || !Finite(_outPosition) || !Finite(_outRotation)) return;
+            // The pause menu stands upright in the world: with the view following an upside-down head (hanging) it
+            // was upside down. While it is open the view stands upright too, facing the same way, at the same spot.
+            bool paused = LocalPlayer.Inventory && LocalPlayer.Inventory.CurrentView == TheForest.Items.Inventory.PlayerInventory.PlayerViews.Pause;
+            _rig.rotation = (paused ? Quaternion.Euler(0f, Heading(_outRotation), 0f) : _outRotation) * _yawCorrection;
+            _rig.position += _outPosition - cam.transform.position;
+        }
+
+        private static float _nextViewLog;
+
+        /// <summary>
+        /// Debug, once a second and when it switches: what the pinned view turns with and where everything points
+        /// (directions in the world, y = up; looking at the sky is (0, 1, 0)).
+        /// </summary>
+        private static void LogViewSource(bool followsHead, Quaternion target)
+        {
+            string Dir(Quaternion q) => $"fwd {(q * Vector3.forward).ToString("F1")} up {(q * Vector3.up).ToString("F1")}";
+            var follow = LocalPlayer.CamFollowHead;
+            var head = follow ? follow.headJnt : null;
+            var eye = LocalPlayer.MainCamTr;
+            Plugin.Debug($"immersive camera: view turns with the {(followsHead ? "head" : "body (camera anchor)")} " +
+                         $"(followAnim={(follow && follow.followAnim)}, cut down={FollowHead}); target {Dir(target)}; " +
+                         $"output {Dir(_outRotation)}; eye {(eye ? Dir(eye.rotation) : "-")}; head {(head ? Dir(head.rotation) : "-")}; " +
+                         $"anchor {(follow ? Dir(follow.transform.rotation) : "-")}; correction {_yawCorrection.eulerAngles.y:0}°");
+        }
+
+        private static bool IsFinite(float f) => !float.IsNaN(f) && !float.IsInfinity(f);
+        private static bool Finite(Vector3 v) => IsFinite(v.x) && IsFinite(v.y) && IsFinite(v.z);
+
+        // Finite and a usable rotation (not the all-zero quaternion an unset field holds).
+        private static bool Finite(Quaternion q) =>
+            IsFinite(q.x) && IsFinite(q.y) && IsFinite(q.z) && IsFinite(q.w) && q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w > 0.5f;
+
+        private static float SaneSpeed(float speed, float max) => IsFinite(speed) ? Mathf.Clamp(speed, 0f, max) : max;
+
+        private static Transform _smoothBody;
+        private static Vector3 _outPosition;
+        private static Quaternion _outRotation = Quaternion.identity;
+
+        // The animated character root: root motion and the scenes move it with the whole body.
+        private static Transform BodyFrame()
+        {
+            if (LocalPlayer.Animator) return LocalPlayer.Animator.transform;
+            return LocalPlayer.PlayerBase ? LocalPlayer.PlayerBase.transform : null;
         }
 
         // How far to move toward the target this frame, for an exponential follow with time constant tau.
         private static float Follow(float tau) => tau <= 0f ? 1f : 1f - Mathf.Exp(-Time.deltaTime / tau);
 
         /// <summary>
-        /// Heading (yaw, degrees) of a rotation: its forward direction projected on the floor; when it points almost
-        /// straight up or down, its up direction (looking down, the top of the head points forward).
+        /// Heading (yaw, degrees) of a rotation: its forward direction projected on the floor, plus its up direction
+        /// projected on the floor, weighted by how far it looks down (positive) or up (negative). Looking down, the top
+        /// of the head points forward; looking up, it points backward, so it counts reversed. Then even looking straight
+        /// up or down gives the right heading. (Taking the up direction as is when looking almost straight up turned
+        /// "forward" around: the pinned view came out 180° off.) Level, the up direction counts for nothing, so a tilted
+        /// head (roll) doesn't change the heading.
         /// </summary>
         public static float Heading(Quaternion rotation)
         {
-            var heading = rotation * Vector3.forward;
+            var forward = rotation * Vector3.forward;
+            var up = rotation * Vector3.up;
+            var heading = forward + up * -forward.y;
             heading.y = 0f;
-            if (heading.sqrMagnitude < 0.01f)
-            {
-                heading = rotation * Vector3.up;
-                heading.y = 0f;
-            }
             return heading.sqrMagnitude > 1e-6f ? Mathf.Atan2(heading.x, heading.z) * Mathf.Rad2Deg : 0f;
         }
 

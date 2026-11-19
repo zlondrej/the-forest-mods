@@ -87,7 +87,14 @@ namespace VrFixes
                 postfix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(CanUpdateMovementPostfix)));
             harmony.Patch(AccessTools.Method(typeof(PlayerStats), "DeathInWater"),
                 prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(DeathInWaterPrefix)));
+            harmony.Patch(AccessTools.Method(typeof(TriggerCutScene), "startPlayerInPlane"),
+                prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(PlaneIntroPrefix)));
         }
+
+        private static bool _planeIntro;
+
+        /// <summary>The plane intro: you start seated, see <see cref="RestoreGameModeRig"/>.</summary>
+        private static void PlaneIntroPrefix() => _planeIntro = true;
 
         private static float _drownedAt = float.NegativeInfinity;
 
@@ -251,18 +258,42 @@ namespace VrFixes
         }
 
         /// <summary>
-        /// As when the theatre ends (it resets the VR offset's rotation): the VR offset and the rig keep only their turn
-        /// (yaw) under the head anchor. Scenes turn them while the body lies or hangs (the drag-away scene turns the VR
-        /// space to the dragged body, room-scale turns the offset about world up while the anchor is tilted), and the
-        /// tilt stayed after the scene: the whole view was tilted.
+        /// What the theatre's SwitchToGameMode does to the VR rig when a scene ends, which nothing did when the theatre
+        /// was skipped: the VR offset back under the head anchor at its standard place, not turned; the rig kept upright
+        /// (its turn only); the eye recentered over the body; the physical-crouching rig height. Scenes move these: the
+        /// plane intro puts the offset at a camera spot behind the player (afterwards the view swung around a point
+        /// away from the head when the body turned), the drag-away scene turns the VR space to the dragged body (the
+        /// view stayed tilted).
         /// </summary>
-        private static void LevelRig()
+        private static void RestoreGameModeRig(VRTheatreController theatre)
         {
             var vr = LocalPlayer.vrPlayerControl;
-            if (!vr) return;
-            if (Plugin.Verbose) Plugin.Debug($"immersive camera: tilt before leveling: {Tilts()}");
-            Level(vr.VROffsetTransform);
+            var anchor = LocalPlayer.CamFollowHead ? LocalPlayer.CamFollowHead.transform : null;
+            if (!vr || !vr.VROffsetTransform || !anchor) return;
+            if (Plugin.Verbose)
+                Plugin.Debug($"immersive camera: rig before restoring: offset at {vr.VROffsetTransform.localPosition} under '{(vr.VROffsetTransform.parent ? vr.VROffsetTransform.parent.name : "-")}', tilt {Tilts()}");
+            vr.VROffsetTransform.parent = anchor;
+            vr.VROffsetTransform.localPosition = RigUnderHead;
+            vr.VROffsetTransform.localEulerAngles = Vector3.zero;
             Level(vr.VRCameraRig);
+            RecenterOnBody();
+            if (PlayerPreferences.VRUsePhysicalCrouching && vr.VRCameraRig)
+            {
+                var p = vr.VRCameraRig.localPosition;
+                vr.VRCameraRig.localPosition = new Vector3(p.x, theatre.offsetRigHeight, p.z);
+            }
+            // The plane intro starts seated: the game centres the eye on the seat, and the view's height came back from
+            // there. In play the game corrects the eye height only when it is off by more than 0.5 m, so a smaller
+            // offset stayed all session (the pause menu, at a fixed height, sat off from the view). Centre the eye on
+            // the body, height included, as the game does itself.
+            if (_planeIntro)
+            {
+                _planeIntro = false;
+                vr.centerVrSpaceAroundHead();
+                Plugin.Debug("immersive camera: plane intro over, view centred on the body (height included)");
+            }
+            if (Plugin.Verbose && vr.VRCamera && vr.VRCameraOrigin)
+                Plugin.Debug($"immersive camera: eye {vr.VRCamera.position.y - vr.VRCameraOrigin.position.y:+0.00;-0.00} m above the body's camera origin");
         }
 
         private static void Level(Transform t)
@@ -328,6 +359,7 @@ namespace VrFixes
             _case = _skipping = _sceneCase = Case.None;
             _wasGhost = _aligned = _setGhostFlag = _loggedGhost = false;
             _drownedAt = float.NegativeInfinity;
+            _planeIntro = false;
             _theatre = null;
             Plugin.Debug("immersive camera: player gone, scene state reset");
         }
@@ -371,9 +403,7 @@ namespace VrFixes
             {
                 if (_skipping != Case.None && !__instance.theatreOn)
                 {
-                    KeepRigOnHead(__instance);
-                    LevelRig();
-                    RecenterOnBody();
+                    RestoreGameModeRig(__instance);
                     __instance.vrPos1 = null;
                     __instance.vrPos2 = null;
                     __instance.useCustomPosition = false;
