@@ -25,3 +25,4 @@ KeepAboveTerrain::turn
 ?CoopSteamNGUI::ShowVRKeyboard
 ?CoopSteamNGUI::_vrKeyboardActive
 ?CoopSteamNGUI::OnKeyboardClosed
+?CoopSteamNGUI::OnVRKeyboard

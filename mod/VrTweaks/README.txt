@@ -32,8 +32,8 @@ WHAT IT DOES
   - Ropes: sprint + stick down starts the fast slide, as in flat-screen (vanilla VR almost never started it).
   - Your body is drawn (torso and legs, with clothes and armour; not the head, nor the bare arms: the VR hands are
     drawn there). Vanilla VR only draws its shadow.
-  - Typing in VR (multiplayer server filter, passwords, server name): pressing Done on the SteamVR keyboard puts the
-    text in the field and lets the keyboard open again.
+  - Typing in VR (multiplayer server filter, passwords, server name): every letter typed on the SteamVR keyboard
+    stays in the field (vanilla kept only the last one), and the keyboard opens again after Done.
   - Building placement: while you hold the rotate button, twisting the aiming hand like a knob turns the building
     (a quarter turn of the hand turns it half around).
 
