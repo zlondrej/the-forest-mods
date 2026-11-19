@@ -191,22 +191,17 @@ namespace ArrowFixes
             return angle < VrBowLookAngle;
         }
 
-        // The game's VR option "right handed bow" (PlayerPreferences.VRUseRightHandedBow, VR build only): drawing with
-        // the right hand, the bow in the left; off, the bow in the right hand.
-        private static readonly System.Reflection.FieldInfo RightHandedBow =
-            AccessTools.Field(typeof(PlayerPreferences), "VRUseRightHandedBow");
-
         /// <summary>
-        /// The VR controller holding the bow, by the game's "right handed bow" option. Looking at it is looking at the
-        /// bow; the held bow object's own position lies well above the bow (too high to look at). The controllers'
-        /// type (Valve's Hand) differs per build, so they are read as plain components.
+        /// The VR hand holding the bow. The game always attaches the VR bow to its "RightHand" hand object; for a
+        /// right-handed bow (bow in the left hand) it mirrors the hands, so that object then follows the left
+        /// controller. Looking at it is looking at the bow; the held bow object's own position lies well above the bow
+        /// (too high to look at). Valve's Hand type differs per build, so it is read as a plain component.
         /// </summary>
         private static Transform BowHand()
         {
             var vr = LocalPlayer.vrPlayerControl;
             if (!vr) return null;
-            bool rightHanded = RightHandedBow == null || (bool)RightHandedBow.GetValue(null);
-            return Traverse.Create(vr).Field(rightHanded ? "LeftHand" : "RightHand").GetValue() is Component c && c ? c.transform : null;
+            return Traverse.Create(vr).Field("RightHand").GetValue() is Component c && c ? c.transform : null;
         }
 
         /// <summary>
