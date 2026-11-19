@@ -7,7 +7,7 @@ using TheForest.Player.Actions;
 using TheForest.Utils;
 using UnityEngine;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>
     /// During scripted animations VR switches to "theatre mode": the scene is shown on a screen in a small dark room. Every

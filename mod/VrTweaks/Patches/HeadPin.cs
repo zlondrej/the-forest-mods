@@ -2,7 +2,7 @@ using System.Reflection;
 using TheForest.Utils;
 using UnityEngine;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>
     /// First person in scenes where the character's head moves far from where the player's real head is, e.g. hanging

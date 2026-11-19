@@ -10,7 +10,7 @@ GAME_DIR="${GAME_DIR:?Set GAME_DIR to The Forest install folder (needed to compi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BEPINEX_SRC="$ROOT/tools/downloads/BepInEx_win_x64_5.4.23.6"
 [[ -d "$BEPINEX_SRC" ]] || { echo "Missing $BEPINEX_SRC - download BepInEx_win_x64_5.4.23.6.zip and extract it there"; exit 1; }
-PLUGINS=(ArrowFixes VrFixes)
+PLUGINS=(ArrowFixes VrTweaks)
 
 NAME="ForestMods-$(git -C "$ROOT" rev-parse --short HEAD)"
 STAGE="$ROOT/dist/$NAME"

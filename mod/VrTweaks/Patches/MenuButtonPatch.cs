@@ -3,7 +3,7 @@ using TheForest.Items.Inventory;
 using TheForest.Utils;
 using UnityEngine;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>
     /// VR has no Esc: the pause menu is reached through "Options" on the inventory mat. Where the mat can't open

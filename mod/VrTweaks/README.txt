@@ -1,5 +1,5 @@
-VR Fixes for The Forest VR
-==========================
+VR Tweaks for The Forest VR
+===========================
 
 INSTALL
   Copy everything in this zip into The Forest's game folder, so that winhttp.dll sits next to TheForestVR.exe
@@ -7,10 +7,10 @@ INSTALL
   flat-screen game is left as it is.
 
   To check it works: start the game, then open BepInEx\LogOutput.log in the game folder. Further down there are
-  "VR Fixes ... applied" lines.
+  "VR Tweaks ... applied" lines.
 
 UNINSTALL
-  Just this mod: delete BepInEx\plugins\VrFixes. Everything: see UNINSTALL in ArrowFixes-README.txt.
+  Just this mod: delete BepInEx\plugins\VrTweaks. Everything: see UNINSTALL in ArrowFixes-README.txt.
 
 WHAT IT DOES
   - Immersive camera: scripted scenes (crawling into caves, getting on and off ropes, drinking, the raft, skinning,
@@ -32,7 +32,7 @@ WHAT IT DOES
   - Ropes: sprint + stick down starts the fast slide, as in flat-screen (vanilla VR almost never started it).
 
 SETTINGS
-  In BepInEx\config\forestmods.vrfixes.cfg (created on first start; read when the game starts):
+  In BepInEx\config\forestmods.vrtweaks.cfg (created on first start; read when the game starts):
   - [ImmersiveCamera]: each scene can go back to theatre mode (false), and the smoothing of the first-person view
     can be tuned.
   - [UnderwaterAirBar]: on/off, distance, height, size and blur of the air bar.

@@ -5,13 +5,13 @@ using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>Fixes for The Forest VR (TheForestVR.exe). Every patch checks ForestVR.Enabled, so flat-screen is unaffected.</summary>
-    [BepInPlugin(Guid, "VR Fixes", "1.0.0")]
+    [BepInPlugin(Guid, "VR Tweaks", "1.0.0")]
     public class Plugin : BaseUnityPlugin
     {
-        public const string Guid = "forestmods.vrfixes";
+        public const string Guid = "forestmods.vrtweaks";
 
         internal static ManualLogSource Log;
 

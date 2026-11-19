@@ -1,7 +1,7 @@
 using HarmonyLib;
 using TheForest.Utils;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>
     /// On a rope, the climbing animation (and its fast slide, which starts once the animator's vSpeed passes about -16,

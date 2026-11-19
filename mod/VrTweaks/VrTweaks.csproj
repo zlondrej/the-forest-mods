@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net35</TargetFramework>
-    <AssemblyName>VrFixes</AssemblyName>
-    <RootNamespace>VrFixes</RootNamespace>
+    <AssemblyName>VrTweaks</AssemblyName>
+    <RootNamespace>VrTweaks</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <Version>1.0.0</Version>

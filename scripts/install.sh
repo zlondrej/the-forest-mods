@@ -4,7 +4,7 @@
 # by this x64 BepInEx build.
 #
 #   scripts/install.sh              build + install all plugins
-#   scripts/install.sh VrFixes      build + install just these plugins
+#   scripts/install.sh VrTweaks      build + install just these plugins
 #   scripts/install.sh --uninstall  remove the plugins and BepInEx (leaves game files untouched)
 set -euo pipefail
 
@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BEPINEX_SRC="$ROOT/tools/downloads/BepInEx_win_x64_5.4.23.6"
 PLUGINS=()
 [[ "${1:-}" == "--uninstall" ]] || PLUGINS=("$@")
-[[ ${#PLUGINS[@]} -gt 0 ]] || PLUGINS=(ArrowFixes VrFixes)
+[[ ${#PLUGINS[@]} -gt 0 ]] || PLUGINS=(ArrowFixes VrTweaks)
 PATCHER_DIR="$GAME_DIR/BepInEx/patchers/ForestEntrypointFix"
 # Everything BepInEx adds to the game root (removed again by --uninstall).
 BEPINEX_ROOT_FILES=(winhttp.dll doorstop_config.ini .doorstop_version changelog.txt)

@@ -2,13 +2,13 @@
 # Build the plugins and statically check they bind against both the flat-screen and VR game assemblies.
 #
 #   scripts/check-plugin.sh                 all plugins
-#   scripts/check-plugin.sh VrFixes         just one
+#   scripts/check-plugin.sh VrTweaks         just one
 set -euo pipefail
 
 GAME_DIR="${GAME_DIR:?Set GAME_DIR to The Forest install folder, e.g. export GAME_DIR='/path/to/steamapps/common/The Forest'}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS=("$@")
-[[ ${#PLUGINS[@]} -gt 0 ]] || PLUGINS=(ArrowFixes VrFixes)
+[[ ${#PLUGINS[@]} -gt 0 ]] || PLUGINS=(ArrowFixes VrTweaks)
 
 dotnet build "$ROOT/scripts/RefCheck" -c Release -nologo -v q
 

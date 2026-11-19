@@ -3,7 +3,7 @@ using TheForest.Utils;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>
     /// The player's body in first-person scenes (theatre skipped). VR first person keeps the body meshes

@@ -2,7 +2,7 @@ using TheForest.Items.Inventory;
 using TheForest.Utils;
 using UnityEngine;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>
     /// The underwater air bar (HudGui.AirReserve, with its low-air outline) is part of the flat-screen HUD, whose camera
@@ -79,7 +79,7 @@ namespace VrFixes
             }
 
             if (_root) Object.Destroy(_root); // the bar is moved off it below, before it is destroyed at frame end
-            _root = new GameObject("VrFixes_AirHud") { layer = layer };
+            _root = new GameObject("VrTweaks_AirHud") { layer = layer };
             var t = _root.transform;
             t.SetParent(LocalPlayer.MainCamTr, false);
             t.localPosition = new Vector3(0f, Height, Distance);
@@ -114,7 +114,7 @@ namespace VrFixes
         {
             var eye = LocalPlayer.MainCam;
             if (_sharpCamera) Object.Destroy(_sharpCamera.gameObject);
-            var go = new GameObject("VrFixes_AirHudCamera");
+            var go = new GameObject("VrTweaks_AirHudCamera");
             go.transform.SetParent(eye.transform.parent, false);
             go.transform.localPosition = eye.transform.localPosition;
             go.transform.localRotation = eye.transform.localRotation;

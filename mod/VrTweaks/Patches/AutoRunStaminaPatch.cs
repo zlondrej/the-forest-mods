@@ -1,7 +1,7 @@
 using HarmonyLib;
 using TheForest.Utils;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>
     /// With VR auto-run, holding the stick past 85% is the sprint button. When stamina runs out, the game drops you to

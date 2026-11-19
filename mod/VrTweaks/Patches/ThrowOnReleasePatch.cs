@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using HarmonyLib;
 
-namespace VrFixes
+namespace VrTweaks
 {
     /// <summary>
     /// VR throwing (VRThrowable: spear, molotov, bombs, rocks, tennis ball) tries a throw both when the throw trigger is
