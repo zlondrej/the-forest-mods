@@ -26,6 +26,9 @@ namespace VrTweaks
             Apply(harmony, "ThrowOnRelease", typeof(ThrowOnReleasePatch));
             Apply(harmony, "InventoryButtonOpensMenu", typeof(MenuButtonPatch));
 
+            PlayerBody.Visible = Config.Bind("PlayerBody", "Visible", PlayerBody.Visible,
+                "Draw your body in VR (torso and legs, clothes and armour; not the head, nor the bare arms: the VR hands are drawn instead). Vanilla VR only draws its shadow.").Value;
+
             SprintThresholdPatch.Threshold = Mathf.Clamp(Config.Bind("Movement", "SprintThreshold", SprintThresholdPatch.Vanilla,
                 "VR auto-run: you sprint while the movement stick is pushed past this part of its range (0.85 = vanilla). Lower: sprint without pushing all the way (sticks that don't reach the edge, especially diagonally). Higher: walk with the stick further out.").Value, 0.1f, 1f);
             Apply(harmony, "SprintThreshold", typeof(SprintThresholdPatch));
@@ -135,6 +138,11 @@ namespace VrTweaks
             {
                 try { MeatIcons.Tick(); }
                 catch (Exception e) { Log.LogError($"SmallMeatIcon: {e}"); _meatIcons = false; }
+            }
+            if (PlayerBody.Visible)
+            {
+                try { PlayerBody.Tick(); }
+                catch (Exception e) { Log.LogError($"PlayerBody: {e}"); PlayerBody.Visible = false; }
             }
         }
 

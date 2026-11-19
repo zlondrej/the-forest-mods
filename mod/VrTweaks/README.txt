@@ -30,6 +30,8 @@ WHAT IT DOES
   - Throwing (spear, molotov, bombs, rocks, balls) only throws when you release the throw trigger. Vanilla also
     threw when you pressed it while your hand was moving, e.g. backwards while winding up.
   - Ropes: sprint + stick down starts the fast slide, as in flat-screen (vanilla VR almost never started it).
+  - Your body is drawn (torso and legs, with clothes and armour; not the head, nor the bare arms: the VR hands are
+    drawn there). Vanilla VR only draws its shadow.
   - Building placement: while you hold the rotate button, twisting the aiming hand like a knob turns the building
     (a quarter turn of the hand turns it half around).
 
@@ -39,6 +41,7 @@ SETTINGS
     can be tuned.
   - [UnderwaterAirBar]: on/off, distance, height, size and blur of the air bar.
   - [Movement] SprintThreshold: how far to push the stick to sprint with auto-run (0.85 = vanilla).
+  - [PlayerBody] Visible: draw your body (true) or only its shadow, as in vanilla (false).
   - [BuildingRotation]: how much the hand twist turns a building (0 = off), and whether only while the rotate button
     is held.
   The other fixes are always on.

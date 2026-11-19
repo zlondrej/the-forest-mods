@@ -49,7 +49,7 @@ namespace VrTweaks
         // Head pieces (the head itself, hoods, hair, beards, face details): they would block the view.
         private static readonly string[] HeadParts = { "head", "hair", "beard", "eyelash", "eyebrow", "eye", "teeth", "mask" };
 
-        private static bool IsHead(string name)
+        internal static bool IsHead(string name)
         {
             var lower = name.ToLowerInvariant();
             foreach (var part in HeadParts)
