@@ -185,10 +185,39 @@ namespace ArrowFixes
                 return lookY < -0.85f;
             }
             var bowTr = bowView._held ? bowView._held.transform : bow.transform;
-            var toBow = bowTr.position - cam.position;
+            var toBow = BowCentre(bowTr) - cam.position;
             float angle = toBow.sqrMagnitude > 1e-6f ? Vector3.Angle(cam.forward, toBow) : 0f;
             info = $"angle to bow={angle:0}° (needs < {VrBowLookAngle:0}°)";
             return angle < VrBowLookAngle;
+        }
+
+        private static Transform _bowRoot;
+        private static Renderer[] _bowRenderers;
+
+        /// <summary>
+        /// Where the bow is: the middle of what's drawn of it (its meshes' bounds). The held bow object's own position
+        /// lies well above the bow, and looking there to switch was much too high.
+        /// </summary>
+        private static Vector3 BowCentre(Transform bow)
+        {
+            if (bow != _bowRoot || _bowRenderers == null)
+            {
+                _bowRoot = bow;
+                _bowRenderers = bow.GetComponentsInChildren<Renderer>(true);
+            }
+            bool any = false;
+            var bounds = default(Bounds);
+            foreach (var r in _bowRenderers)
+            {
+                if (!r || !r.enabled || !r.gameObject.activeInHierarchy || r is ParticleSystemRenderer) continue;
+                if (any) bounds.Encapsulate(r.bounds);
+                else
+                {
+                    bounds = r.bounds;
+                    any = true;
+                }
+            }
+            return any ? bounds.center : bow.position;
         }
 
         /// <summary>
