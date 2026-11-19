@@ -33,7 +33,15 @@ namespace VrTweaks
                 "VR auto-run: you sprint while the movement stick is pushed past this part of its range (0.85 = vanilla). Lower: sprint without pushing all the way (sticks that don't reach the edge, especially diagonally). Higher: walk with the stick further out.").Value, 0.1f, 1f);
             Apply(harmony, "SprintThreshold", typeof(SprintThresholdPatch));
 
-            BuildingRotationPatch.Ratio = Config.Bind("BuildingRotation", "HandTwistRatio", BuildingRotationPatch.Ratio,
+            try
+            {
+                Log.LogInfo(VrKeyboardPatch.Apply(harmony)
+                    ? "VrKeyboard: applied"
+                    : "VrKeyboard: not applied (VR build only)");
+            }
+            catch (Exception e) { Log.LogError($"VrKeyboard: failed to apply. {e}"); }
+
+            BuildingRotationPatch.Ratio =Config.Bind("BuildingRotation", "HandTwistRatio", BuildingRotationPatch.Ratio,
                 "Placing a building in VR: twisting the hand that aims (around where it points, like turning a knob) turns the building by this many degrees per degree of twist (2: a quarter turn of the hand turns it half around). Negative = the other way, 0 = off.").Value;
             BuildingRotationPatch.OnlyWhileRotateHeld = Config.Bind("BuildingRotation", "OnlyWhileRotateHeld", BuildingRotationPatch.OnlyWhileRotateHeld,
                 "true = the hand turns the building only while you hold the rotate button; false = always, on top of the rotate input.").Value;

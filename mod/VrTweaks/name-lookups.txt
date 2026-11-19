@@ -22,3 +22,6 @@ TheForest.Items.Inventory.PlayerInventory::Update
 HudGui::VRPauseMenuCam
 ?KeepAboveTerrain::UpdateRotateInput
 KeepAboveTerrain::turn
+?CoopSteamNGUI::ShowVRKeyboard
+?CoopSteamNGUI::_vrKeyboardActive
+?CoopSteamNGUI::OnKeyboardClosed
