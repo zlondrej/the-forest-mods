@@ -4,8 +4,9 @@ using TheForest.Utils;
 namespace VrTweaks
 {
     /// <summary>
-    /// With VR auto-run, holding the stick past 85% is the sprint button. When stamina runs out, the game drops you to
-    /// walking speed (CantRun) but keeps you "running" while the stick stays forward, and running restarts the
+    /// With VR auto-run, holding the stick past the sprint threshold (85% in vanilla, see SprintThresholdPatch) is the
+    /// sprint button. When stamina runs out, the game drops you to walking speed (CantRun) but keeps you "running"
+    /// while the stick stays forward, and running restarts the
     /// run-recovery delay every frame, so stamina never regenerates until you ease off the stick. Here an exhausted
     /// player walking with the stick forward no longer counts as running. Sprinting again still needs the stick eased
     /// off and pushed again, as in vanilla.

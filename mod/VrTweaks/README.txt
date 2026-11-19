@@ -38,6 +38,7 @@ SETTINGS
   - [ImmersiveCamera]: each scene can go back to theatre mode (false), and the smoothing of the first-person view
     can be tuned.
   - [UnderwaterAirBar]: on/off, distance, height, size and blur of the air bar.
+  - [Movement] SprintThreshold: how far to push the stick to sprint with auto-run (0.85 = vanilla).
   - [BuildingRotation]: how much the hand twist turns a building (0 = off), and whether only while the rotate button
     is held.
   The other fixes are always on.

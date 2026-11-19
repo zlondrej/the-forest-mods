@@ -26,6 +26,10 @@ namespace VrTweaks
             Apply(harmony, "ThrowOnRelease", typeof(ThrowOnReleasePatch));
             Apply(harmony, "InventoryButtonOpensMenu", typeof(MenuButtonPatch));
 
+            SprintThresholdPatch.Threshold = Mathf.Clamp(Config.Bind("Movement", "SprintThreshold", SprintThresholdPatch.Vanilla,
+                "VR auto-run: you sprint while the movement stick is pushed past this part of its range (0.85 = vanilla). Lower: sprint without pushing all the way (sticks that don't reach the edge, especially diagonally). Higher: walk with the stick further out.").Value, 0.1f, 1f);
+            Apply(harmony, "SprintThreshold", typeof(SprintThresholdPatch));
+
             BuildingRotationPatch.Ratio = Config.Bind("BuildingRotation", "HandTwistRatio", BuildingRotationPatch.Ratio,
                 "Placing a building in VR: twisting the hand that aims (around where it points, like turning a knob) turns the building by this many degrees per degree of twist (2: a quarter turn of the hand turns it half around). Negative = the other way, 0 = off.").Value;
             BuildingRotationPatch.OnlyWhileRotateHeld = Config.Bind("BuildingRotation", "OnlyWhileRotateHeld", BuildingRotationPatch.OnlyWhileRotateHeld,
