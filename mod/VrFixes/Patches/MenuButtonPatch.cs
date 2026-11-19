@@ -80,7 +80,6 @@ namespace VrFixes
             if ((LocalPlayer.Create && LocalPlayer.Create.CreateMode) || (LocalPlayer.PlayerDeadCam && LocalPlayer.PlayerDeadCam.activeSelf) ||
                 __instance.QuickSelectGamepadSwitch)
                 return;
-            Plugin.Debug("menu button: the inventory can't open here, opening the pause menu");
             _restoreScene = true;
             __instance.TogglePauseMenu();
         }
@@ -139,7 +138,6 @@ namespace VrFixes
                 rb.isKinematic = _kinematic;
                 rb.useGravity = _gravity;
             }
-            Plugin.Debug("menu button: menu closed, the scene's camera layers, view lock and body physics restored");
         }
     }
 }

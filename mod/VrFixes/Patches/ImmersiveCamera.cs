@@ -63,7 +63,7 @@ namespace VrFixes
         private static Case _case;       // the action that started last
         private static bool _wasGhost;   // scene active (ghost mode or a pin) in the previous frame
         private static Case _sceneCase;  // _case when the active scene started
-        private static Case _skipping;   // case whose theatre is being skipped (for logging once)
+        private static Case _skipping;   // case whose theatre is being skipped (cleaned up after it ends)
 
         public static void Apply(Harmony harmony)
         {
@@ -128,7 +128,6 @@ namespace VrFixes
         private static void StartHangingInCave()
         {
             Started(Case.HangingInCave);
-            if (Plugin.Verbose && ForestVR.Enabled && _theatre) LogState(_theatre, "hanging scene starts");
             if (!ForestVR.Enabled || !Is(Immersive, Case.HangingInCave) || !Is(RotationOnly, Case.HangingInCave)) return;
             _hangingSince = UnityEngine.Time.time;
             _hangingSeen = false;
@@ -167,11 +166,7 @@ namespace VrFixes
         {
             if (!ForestVR.Enabled || __instance.theatreOn) return true;
             if (_case == Case.None || !Immersive.TryGetValue(_case, out var immersive) || !immersive) return true;
-            if (_skipping != _case)
-            {
-                _skipping = _case;
-                Plugin.Debug($"immersive camera: {_case}, staying first person (theatre skipped)");
-            }
+            _skipping = _case;
             KeepRigOnHead(__instance);
             BodyView.Show();
             if (Is(RotationOnly, _case))
@@ -241,10 +236,7 @@ namespace VrFixes
         /// </summary>
         private static void ReleaseFromHangingPrefix()
         {
-            if (Plugin.Verbose && ForestVR.Enabled && _theatre) LogState(_theatre, "cut down from hanging");
-            if (!ForestVR.Enabled || !HeadPin.On) return;
-            HeadPin.FollowHead = true;
-            Plugin.Debug("immersive camera: cut down from hanging, the view follows the head");
+            if (ForestVR.Enabled && HeadPin.On) HeadPin.FollowHead = true;
         }
 
         /// <summary>
@@ -270,8 +262,6 @@ namespace VrFixes
             var vr = LocalPlayer.vrPlayerControl;
             var anchor = LocalPlayer.CamFollowHead ? LocalPlayer.CamFollowHead.transform : null;
             if (!vr || !vr.VROffsetTransform || !anchor) return;
-            if (Plugin.Verbose)
-                Plugin.Debug($"immersive camera: rig before restoring: offset at {vr.VROffsetTransform.localPosition} under '{(vr.VROffsetTransform.parent ? vr.VROffsetTransform.parent.name : "-")}', tilt {Tilts()}");
             vr.VROffsetTransform.parent = anchor;
             vr.VROffsetTransform.localPosition = RigUnderHead;
             vr.VROffsetTransform.localEulerAngles = Vector3.zero;
@@ -290,24 +280,12 @@ namespace VrFixes
             {
                 _planeIntro = false;
                 vr.centerVrSpaceAroundHead();
-                Plugin.Debug("immersive camera: plane intro over, view centred on the body (height included)");
             }
-            if (Plugin.Verbose && vr.VRCamera && vr.VRCameraOrigin)
-                Plugin.Debug($"immersive camera: eye {vr.VRCamera.position.y - vr.VRCameraOrigin.position.y:+0.00;-0.00} m above the body's camera origin");
         }
 
         private static void Level(Transform t)
         {
             if (t) t.localRotation = Quaternion.Euler(0f, HeadPin.Heading(t.localRotation), 0f);
-        }
-
-        // How far each part of the view's chain leans from upright (debug).
-        private static string Tilts()
-        {
-            var vr = LocalPlayer.vrPlayerControl;
-            string Tilt(Transform t) => t ? $"{Vector3.Angle(t.up, Vector3.up):0}°" : "-";
-            return $"player={Tilt(LocalPlayer.Transform)} anchor={Tilt(LocalPlayer.CamFollowHead ? LocalPlayer.CamFollowHead.transform : null)} " +
-                   $"offset={Tilt(vr ? vr.VROffsetTransform : null)} rig={Tilt(vr ? vr.VRCameraRig : null)}";
         }
 
         /// <summary>As when the theatre ends: the rig is moved so the eye is (horizontally) over the body's camera origin.</summary>
@@ -335,16 +313,7 @@ namespace VrFixes
             vr.VROffsetTransform.localPosition = SteppedMode(theatre) ? StoredVrOffsetPos(theatre) : RigUnderHead;
             vr.VROffsetTransform.localEulerAngles = UnityEngine.Vector3.zero;
             SteppedMode(theatre) = false;
-            Plugin.Debug("immersive camera: VR rig reattached to the head");
         }
-
-        /// <summary>
-        /// When the scene ends (ghost mode off and no pin holding on), forget the case (an action that never turned ghost
-        /// mode on is overridden later). If the theatre was skipped, also clear what SwitchToGameMode would have reset
-        /// (stand positions, stepped mode).
-        /// </summary>
-        private static bool _loggedGhost;
-        private static VRTheatreController _theatre; // LocalPlayer.vrTheatreController doesn't exist in the flat-screen build
 
         /// <summary>
         /// Every frame (from the plugin): if the player went away mid-scene (drowning ends in a game over that loads the
@@ -357,42 +326,20 @@ namespace VrFixes
             HeadPin.Abandon();
             BodyView.Abandon();
             _case = _skipping = _sceneCase = Case.None;
-            _wasGhost = _aligned = _setGhostFlag = _loggedGhost = false;
+            _wasGhost = _aligned = _setGhostFlag = false;
             _drownedAt = float.NegativeInfinity;
             _planeIntro = false;
-            _theatre = null;
-            Plugin.Debug("immersive camera: player gone, scene state reset");
         }
 
-        /// <summary>Debug: the state that decides how a scene plays (to tell why one went wrong).</summary>
-        private static void LogState(VRTheatreController theatre, string what)
-        {
-            try
-            {
-                var adapter = LocalPlayer.vrAdapter;
-                var joints = adapter ? adapter.JointsOffsetTransform : null;
-                var animator = LocalPlayer.Animator;
-                Plugin.Debug($"immersive camera: {what}: case={_case} theatre={theatre.theatreOn} ghostFlag={theatre.ghostFromTheatreMode} " +
-                             $"pin={(HeadPin.On ? (HeadPin.Engaged ? "pinned" : "free") : "off")} skeletonUnder='{(joints && joints.parent ? joints.parent.name : "-")}' " +
-                             $"followAnim={(LocalPlayer.CamFollowHead && LocalPlayer.CamFollowHead.followAnim)} " +
-                             $"hanging={(animator && animator.GetBool("hangingBool"))} upsideDown={(LocalPlayer.AnimControl && LocalPlayer.AnimControl.upsideDown)} " +
-                             $"fpCharacter={(LocalPlayer.FpCharacter && LocalPlayer.FpCharacter.enabled)} " +
-                             $"playerYaw={(LocalPlayer.Transform ? LocalPlayer.Transform.eulerAngles.y : 0f):0} viewYaw={(LocalPlayer.MainCamTr ? HeadPin.Heading(LocalPlayer.MainCamTr.rotation) : 0f):0} " +
-                             $"tilt: {Tilts()}");
-            }
-            catch (Exception e) { Plugin.Debug($"immersive camera: {what} (state not available: {e.Message})"); }
-        }
-
+        /// <summary>
+        /// When the scene ends (ghost mode off and no pin holding on), forget the case (an action that never turned ghost
+        /// mode on is overridden later). If the theatre was skipped, also clear what SwitchToGameMode would have reset
+        /// (stand positions, stepped mode, the VR rig).
+        /// </summary>
         private static void TheatreUpdatePostfix(VRTheatreController __instance)
         {
-            _theatre = __instance;
             var vr = LocalPlayer.vrPlayerControl;
             bool ghost = vr && vr.useGhostMode;
-            if (Plugin.Verbose && ghost != _loggedGhost)
-            {
-                _loggedGhost = ghost;
-                LogState(__instance, ghost ? "ghost mode on" : "ghost mode off");
-            }
             HeadPin.Tick();
             // The pin ends with ghost mode, or later for scenes that outlast it (hanging: the game ends ghost mode
             // while the player still hangs).
@@ -412,11 +359,9 @@ namespace VrFixes
                 if (_setGhostFlag && !__instance.theatreOn) __instance.ghostFromTheatreMode = false;
                 _setGhostFlag = false;
                 _aligned = false;
-                if (Plugin.Verbose) LogState(__instance, "scene ended");
                 // Forget the case, unless the next scene already noted its own (dying outside the caves, the death
                 // scene ends in the very frame the drag-away scene starts).
                 if (_case == _sceneCase) _case = Case.None;
-                else Plugin.Debug($"immersive camera: next scene already started: {_case}");
                 _skipping = Case.None;
             }
             else if (!_wasGhost && active)

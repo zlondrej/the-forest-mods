@@ -13,8 +13,6 @@ namespace VrFixes
     [HarmonyPatch(typeof(FirstPersonCharacter), "Update")]
     internal static class AutoRunStaminaPatch
     {
-        private static bool _logged;
-
         private static void Prefix(FirstPersonCharacter __instance, out float __state)
         {
             __state = __instance.recoveringFromRun;
@@ -26,18 +24,9 @@ namespace VrFixes
             // Not on a rope: there, holding sprint while exhausted doesn't regenerate stamina in flat-screen either (and
             // with the VR rope slide working, it let you slide and regenerate at once).
             if (LocalPlayer.AnimControl && LocalPlayer.AnimControl.onRope) return;
-            if (!__instance.CantRun || !__instance.running)
-            {
-                _logged = false;
-                return;
-            }
+            if (!__instance.CantRun || !__instance.running) return;
             __instance.running = false;
             __instance.recoveringFromRun = __state; // undo the restart of the recovery delay
-            if (!_logged)
-            {
-                _logged = true;
-                Plugin.Debug($"auto-run: out of stamina ({LocalPlayer.Stats?.Stamina:0.0}), walking on with the stick forward; stamina can regenerate");
-            }
         }
     }
 }

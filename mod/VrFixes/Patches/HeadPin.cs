@@ -69,7 +69,6 @@ namespace VrFixes
             FollowHead = false;
             AnchorSkeletonToBody();
             _on = true;
-            Plugin.Debug("immersive camera: scene with the view pinned to the head started" + (pinWhile != null ? " (pinned part of the time)" : ""));
             if (Safe(_pinWhile ?? (() => true), true)) Engage();
         }
 
@@ -81,7 +80,6 @@ namespace VrFixes
             _keepWhile = _pinWhile = null;
             FollowHead = false;
             _on = false;
-            Plugin.Debug("immersive camera: scene with the view pinned ended");
         }
 
         /// <summary>
@@ -102,7 +100,6 @@ namespace VrFixes
             FollowHead = false;
             _joints = _jointsParent = null;
             _jointsConstraint = null;
-            Plugin.Debug("immersive camera: player gone during a pinned scene, positional tracking back on");
         }
 
         /// <summary>Every frame: pin or release the view as the scene's <c>pinWhile</c> says; finish a pending release.</summary>
@@ -124,17 +121,12 @@ namespace VrFixes
             _rigLocalRotation = _rig.localRotation;
             // Where the player looks relative to the rig, flattened to a heading (yaw only, no pitch or roll): that heading
             // becomes "forward".
-            var look = Quaternion.Inverse(_rig.rotation) * LocalPlayer.MainCamTr.rotation;
-            _yawCorrection = Quaternion.Euler(0f, -Heading(look), 0f);
-            if (Plugin.Verbose)
-                Plugin.Debug($"immersive camera: pin forward taken from your view: heading {Heading(look):0}° in the play area, " +
-                             $"looking {Mathf.Asin(Mathf.Clamp((look * Vector3.forward).y, -1f, 1f)) * Mathf.Rad2Deg:0}° up");
+            _yawCorrection = Quaternion.Euler(0f, -Heading(Quaternion.Inverse(_rig.rotation) * LocalPlayer.MainCamTr.rotation), 0f);
             _smoothing = false;
             _smoothedFrame = -1;
             SetPositionalTracking(false);
             Camera.onPreCull += Pin;
             _engaged = true;
-            Plugin.Debug($"immersive camera: view pinned to the head (rotation only){(DisablePositionalTracking == null ? ", but positional tracking could not be turned off" : "")}");
         }
 
         /// <summary>
@@ -168,7 +160,6 @@ namespace VrFixes
                 _rig.localRotation = _rigLocalRotation;
             }
             _engaged = false;
-            Plugin.Debug("immersive camera: view released, positional tracking back on");
         }
 
         private static int _heightFrame = -1;
@@ -226,7 +217,6 @@ namespace VrFixes
             var offset = position - eye.position;
             offset.y = 0f;
             rig.position += offset;
-            Plugin.Debug($"immersive camera: view turned {turn:0}° and moved {offset.magnitude:0.00} m");
         }
 
         /// <summary>Smoothing time constants (seconds) of the pinned view while the head is still; 0 = none.</summary>
@@ -243,7 +233,6 @@ namespace VrFixes
         public static float MaxPositionLag = 0.05f, MaxRotationLag = 15f;
 
         private const float SpeedSmoothing = 0.1f;
-        private static float _nextLagLog;
         private static float _rotationSpeed, _positionSpeed;
         private static Vector3 _lastPosition;
         private static Quaternion _lastRotation;
@@ -307,11 +296,6 @@ namespace VrFixes
                     _blendFrom = _outRotation;
                     _blendStart = Time.time;
                 }
-                if (Plugin.Verbose && (followsHead != _followedHead || Time.unscaledTime >= _nextViewLog))
-                {
-                    _nextViewLog = Time.unscaledTime + 1f;
-                    LogViewSource(followsHead, worldRotation);
-                }
                 _followedHead = followsHead;
                 float blend = (Time.time - _blendStart) / SwitchBlendTime;
                 if (blend < 1f) worldRotation = Quaternion.Slerp(_blendFrom, worldRotation, Mathf.SmoothStep(0f, 1f, blend));
@@ -359,24 +343,11 @@ namespace VrFixes
                     // still low, and the view lagged into the body (dragged away: the head falls back, the view sank
                     // into the neck). Jitter is far smaller, so it is still smoothed.
                     var lag = position - _smoothPosition;
-                    bool capped = false;
                     if (MaxPositionLag > 0f && lag.magnitude > MaxPositionLag)
-                    {
                         _smoothPosition = position - lag.normalized * MaxPositionLag;
-                        capped = true;
-                    }
                     float angle = Quaternion.Angle(_smoothRotation, rotation);
                     if (MaxRotationLag > 0f && angle > MaxRotationLag)
-                    {
                         _smoothRotation = Quaternion.Slerp(rotation, _smoothRotation, MaxRotationLag / angle);
-                        capped = true;
-                    }
-                    if (capped && Plugin.Verbose && Time.unscaledTime >= _nextLagLog)
-                    {
-                        _nextLagLog = Time.unscaledTime + 1f;
-                        Plugin.Debug($"immersive camera: smoothing trailed the head by {lag.magnitude:0.000} m / {angle:0}° (head moving " +
-                                     $"{_positionSpeed:0.00} m/s, {_rotationSpeed:0}°/s), held to {MaxPositionLag} m / {MaxRotationLag}°");
-                    }
                 }
                 _lastRotation = rotation;
                 _lastPosition = position;
@@ -437,36 +408,8 @@ namespace VrFixes
                 }
             }
             _menuScreenTries++;
-            var eye = LocalPlayer.MainCamTr;
-            if (_menuScreen)
-            {
-                _menuScreenLooked = true;
-                if (eye) Plugin.Debug($"immersive camera: pause menu screen '{_menuScreen.name}' at {(_menuScreen.bounds.center - eye.position).ToString("F2")} from the eye " +
-                                      $"(found after {_menuScreenTries} frame(s)), view moved to its height");
-            }
-            else if (_menuScreenTries == 120)
-            {
-                Plugin.Debug($"immersive camera: pause menu screen still not found (menu camera texture: {(texture ? texture.name : "none")}), view stays at the head");
-            }
+            if (_menuScreen) _menuScreenLooked = true;
             return _menuScreen;
-        }
-
-        private static float _nextViewLog;
-
-        /// <summary>
-        /// Debug, once a second and when it switches: what the pinned view turns with and where everything points
-        /// (directions in the world, y = up; looking at the sky is (0, 1, 0)).
-        /// </summary>
-        private static void LogViewSource(bool followsHead, Quaternion target)
-        {
-            string Dir(Quaternion q) => $"fwd {(q * Vector3.forward).ToString("F1")} up {(q * Vector3.up).ToString("F1")}";
-            var follow = LocalPlayer.CamFollowHead;
-            var head = follow ? follow.headJnt : null;
-            var eye = LocalPlayer.MainCamTr;
-            Plugin.Debug($"immersive camera: view turns with the {(followsHead ? "head" : "body (camera anchor)")} " +
-                         $"(followAnim={(follow && follow.followAnim)}, cut down={FollowHead}); target {Dir(target)}; " +
-                         $"output {Dir(_outRotation)}; eye {(eye ? Dir(eye.rotation) : "-")}; head {(head ? Dir(head.rotation) : "-")}; " +
-                         $"anchor {(follow ? Dir(follow.transform.rotation) : "-")}; correction {_yawCorrection.eulerAngles.y:0}°");
         }
 
         private static bool IsFinite(float f) => !float.IsNaN(f) && !float.IsInfinity(f);
@@ -537,7 +480,6 @@ namespace VrFixes
             if (_jointsConstraint) _jointsConstraint.enabled = false;
             _joints.localPosition = Vector3.zero;
             _joints.localRotation = Quaternion.identity;
-            Plugin.Debug($"immersive camera: skeleton anchored to the body (was under '{(_jointsParent ? _jointsParent.name : "nothing")}')");
         }
 
         private static void RestoreSkeleton()

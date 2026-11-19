@@ -27,26 +27,16 @@ namespace VrFixes
             var adapter = LocalPlayer.vrAdapter;
             if (!adapter || adapter.PlayerMeshesToDisable == null) return;
             int headLayer = LayerMask.NameToLayer("Camera");
-            var skippedHead = new List<string>();
             foreach (var go in adapter.PlayerMeshesToDisable)
             {
                 if (!go) continue;
                 foreach (var r in go.GetComponentsInChildren<Renderer>(true))
                 {
                     if (!r || r.shadowCastingMode != ShadowCastingMode.ShadowsOnly) continue; // only what VR hid
-                    if (r == adapter.PlayerHead1 || r.gameObject.layer == headLayer || IsHead(r.name))
-                    {
-                        skippedHead.Add(r.name);
-                        continue;
-                    }
+                    if (r == adapter.PlayerHead1 || r.gameObject.layer == headLayer || IsHead(r.name)) continue;
                     Changed.Add(new KeyValuePair<Renderer, ShadowCastingMode>(r, r.shadowCastingMode));
                     r.shadowCastingMode = ShadowCastingMode.On;
                 }
-            }
-            if (Plugin.Verbose)
-            {
-                Plugin.Debug("immersive camera: body meshes shown: " + string.Join(", ", Changed.ConvertAll(p => p.Key.name).ToArray()));
-                Plugin.Debug("immersive camera: head meshes kept hidden: " + string.Join(", ", skippedHead.ToArray()));
             }
             if (adapter.defaultPlayerArms && adapter.VRPlayerHands)
             {
@@ -56,7 +46,6 @@ namespace VrFixes
                 adapter.VRPlayerHands.gameObject.SetActive(false);
             }
             _shown = true;
-            Plugin.Debug($"immersive camera: body shown ({Changed.Count} meshes, animated arms instead of VR hands)");
         }
 
         // Head pieces (the head itself, hoods, hair, beards, face details): they would block the view.
@@ -90,7 +79,6 @@ namespace VrFixes
                 adapter.VRPlayerHands.gameObject.SetActive(_handsWereActive);
             }
             _shown = false;
-            Plugin.Debug("immersive camera: body hidden again");
         }
     }
 }

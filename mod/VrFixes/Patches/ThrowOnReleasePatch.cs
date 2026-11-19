@@ -30,9 +30,8 @@ namespace VrFixes
 
         private static bool Prefix()
         {
-            if (_throwHeld == null || !ForestVR.Enabled || !_throwHeld()) return true;
-            Plugin.Debug("throw: trigger pressed, waiting for release");
-            return false; // the trigger is still held: this is the press, not the release
+            // The trigger still held: this is the press, not the release.
+            return _throwHeld == null || !ForestVR.Enabled || !_throwHeld();
         }
     }
 }
