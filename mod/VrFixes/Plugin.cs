@@ -20,23 +20,13 @@ namespace VrFixes
             Log = Logger;
             var harmony = new Harmony(Guid);
 
-            Apply(harmony, "AutoRunStaminaRegen",
-                "VR auto-run: once out of stamina, stamina regenerates while you keep walking with the stick fully forward (vanilla only regenerates after you ease off the stick).",
-                typeof(AutoRunStaminaPatch));
+            // Essential fixes, always on.
+            Apply(harmony, "AutoRunStaminaRegen", typeof(AutoRunStaminaPatch));
+            Apply(harmony, "RopeSlide", typeof(RopeSlidePatch));
+            Apply(harmony, "ThrowOnRelease", typeof(ThrowOnReleasePatch));
+            Apply(harmony, "InventoryButtonOpensMenu", typeof(MenuButtonPatch));
 
-            Apply(harmony, "RopeSlide",
-                "VR: on a rope, sprint + stick down starts the fast slide, as in flat-screen (vanilla VR ignored the stick for the climbing animation, so the slide almost never started).",
-                typeof(RopeSlidePatch));
-
-            Apply(harmony, "ThrowOnRelease",
-                "VR throwing (spear, molotov, bombs, rocks, balls) only throws when you release the throw trigger; vanilla also threw when you pressed it while your hand was moving, often backwards.",
-                typeof(ThrowOnReleasePatch));
-
-            Apply(harmony, "InventoryButtonOpensMenu",
-                "VR: a short press of the inventory button opens the pause menu where the inventory can't open (during animations), and underwater and while hanging in the cave (instead of the inventory), as Esc does in flat-screen; vanilla VR only reaches the menu through the inventory.",
-                typeof(MenuButtonPatch));
-
-            _airHud = Config.Bind("Fixes", "UnderwaterAirBar", true,
+            _airHud = Config.Bind("UnderwaterAirBar", "Enabled", true,
                 "Show the underwater air bar in VR, in front of the view (vanilla VR never shows it).").Value;
             AirHud.Distance = Config.Bind("UnderwaterAirBar", "Distance", AirHud.Distance, "Distance from the eyes, in metres.").Value;
             AirHud.Height = Config.Bind("UnderwaterAirBar", "Height", AirHud.Height, "Height relative to the centre of the view, in metres (negative = below).").Value;
@@ -66,40 +56,29 @@ namespace VrFixes
         private bool _immersiveCamera;
 
         /// <summary>
-        /// [ImmersiveCamera]: per case, true = first person, false = theatre mode (vanilla).
-        /// [ImmersiveCameraRotationOnly]: per case, for first person: true = the view is pinned to the character's head and
-        /// the headset only rotates it, false = normal headset tracking.
+        /// [ImmersiveCamera]: per scene, true = first person (the view pinned to the character's head, the headset only
+        /// rotates it), false = theatre mode (vanilla); and the smoothing of the pinned view.
         /// </summary>
         private void BindImmersiveCamera()
         {
-            void Bind(ImmersiveCamera.Case c, bool immersive, bool rotationOnly, string when)
-            {
-                ImmersiveCamera.Immersive[c] = Config.Bind("ImmersiveCamera", c.ToString(), immersive,
-                    $"{when}: true = first person (immersive), false = theatre mode (the scene on a screen, as in vanilla VR).").Value;
-                ImmersiveCamera.RotationOnly[c] = Config.Bind("ImmersiveCameraRotationOnly", c.ToString(), rotationOnly,
-                    $"{when}, with [ImmersiveCamera] {c} = true: true = the view is pinned to the character's head and the headset " +
-                    "only rotates it (no positional tracking), false = normal headset tracking.").Value;
-            }
+            void Bind(ImmersiveCamera.Case c, string when) =>
+                ImmersiveCamera.Immersive[c] = Config.Bind("ImmersiveCamera", c.ToString(), true,
+                    $"{when}: true = first person, seen through the character's eyes; false = theatre mode (the scene on a screen, as in vanilla VR).").Value;
 
-            Bind(ImmersiveCamera.Case.Caves, true, true, "Crawling into or out of a cave entrance");
-            Bind(ImmersiveCamera.Case.Climbing, true, true, "Getting onto a rope or climbing wall, from the bottom or the top");
-            Bind(ImmersiveCamera.Case.Drinking, true, true, "Drinking from a lake, river or other water");
-            Bind(ImmersiveCamera.Case.Raft, true, true, "Getting on and riding a raft");
-            Bind(ImmersiveCamera.Case.Skinning, true, true, "Skinning an animal");
-            Bind(ImmersiveCamera.Case.KeypadDoors, true, true, "Opening a keycard/keypad door");
-            Bind(ImmersiveCamera.Case.Artifact, true, true, "Placing the artifact");
-            Bind(ImmersiveCamera.Case.StoryScenes, true, true,
-                "Story scenes (opening plane crash, being dragged away, waking up, Timmy, the girl, the endings); first person may break some");
-            Bind(ImmersiveCamera.Case.HangingInCave, true, true, "Waking up hanging upside down in the cave");
-            Bind(ImmersiveCamera.Case.Death, true, true, "Dying (falling, drowning, killed)");
-
-            BodyView.Enabled = Config.Bind("ImmersiveCamera", "ShowBody", true,
-                "In first-person scenes: show your body (not the head) and its animated arms instead of the VR hands, as the theatre does.").Value;
-            ImmersiveCamera.AlignViewAtStart = Config.Bind("ImmersiveCamera", "AlignViewAtStart", ImmersiveCamera.AlignViewAtStart,
-                "First-person scenes with normal headset tracking: when the scene starts, turn and move your view to where the character looks and stands (your height stays).").Value;
+            Bind(ImmersiveCamera.Case.Caves, "Crawling into or out of a cave entrance");
+            Bind(ImmersiveCamera.Case.Climbing, "Getting onto and off a rope or climbing wall (on it, you look around and lean freely, at the character's height)");
+            Bind(ImmersiveCamera.Case.Drinking, "Drinking from a lake, river or other water");
+            Bind(ImmersiveCamera.Case.Raft, "Getting on and riding a raft");
+            Bind(ImmersiveCamera.Case.Skinning, "Skinning an animal");
+            Bind(ImmersiveCamera.Case.KeypadDoors, "Opening a keycard/keypad door");
+            Bind(ImmersiveCamera.Case.Artifact, "Placing the artifact");
+            Bind(ImmersiveCamera.Case.StoryScenes,
+                "Story scenes (opening plane crash, being dragged away, waking up, Timmy, the girl, the endings)");
+            Bind(ImmersiveCamera.Case.HangingInCave, "Waking up hanging upside down in the cave");
+            Bind(ImmersiveCamera.Case.Death, "Dying (falling, drowning, killed)");
 
             float NonNegative(string key, float value, string description) =>
-                Mathf.Max(0f, Config.Bind("ImmersiveCameraRotationOnly", key, value, description).Value);
+                Mathf.Max(0f, Config.Bind("ImmersiveCamera", key, value, description).Value);
             HeadPin.RotationSmoothing = NonNegative("RotationSmoothing", HeadPin.RotationSmoothing,
                 "Seconds the pinned view takes to follow the character's head rotation (smooths its small animated movements); 0 = no smoothing.");
             HeadPin.PositionSmoothing = NonNegative("PositionSmoothing", HeadPin.PositionSmoothing,
@@ -112,8 +91,6 @@ namespace VrFixes
                 "The smoothed view never trails the character's head by more than this many metres, so large movements don't drag behind (small sways are smaller and still smoothed); 0 = no limit.");
             HeadPin.MaxRotationLag = NonNegative("MaxRotationLag", HeadPin.MaxRotationLag,
                 "The smoothed view never trails the character's head rotation by more than this many degrees; 0 = no limit.");
-            ImmersiveCamera.ClimbingFreeOnRope = Config.Bind("ImmersiveCameraRotationOnly", "ClimbingFreeOnRope", ImmersiveCamera.ClimbingFreeOnRope,
-                "With Climbing = true here: the view is pinned only while getting onto and off the rope or wall; while climbing, the headset moves the view horizontally and turns it, its height stays at the character's head. false = pinned the whole climb.").Value;
         }
 
         private bool _airHud;
@@ -135,13 +112,8 @@ namespace VrFixes
             catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
         }
 
-        private bool Apply(Harmony harmony, string key, string description, params Type[] patchClasses)
+        private static bool Apply(Harmony harmony, string key, params Type[] patchClasses)
         {
-            if (!Config.Bind("Fixes", key, true, description).Value)
-            {
-                Log.LogInfo($"{key}: disabled in config");
-                return false;
-            }
             try
             {
                 foreach (var patchClass in patchClasses)

@@ -262,7 +262,7 @@ namespace VrFixes
         /// direction, or frozen where the following stopped). VR's own anchor stops following the head's position then,
         /// so the head joint is used.
         /// </summary>
-        public static bool FlatView(out Vector3 position, out Quaternion rotation) => FlatView(out position, out rotation, out _);
+        private static bool FlatView(out Vector3 position, out Quaternion rotation) => FlatView(out position, out rotation, out _);
 
         private static bool FlatView(out Vector3 position, out Quaternion rotation, out bool followsHead)
         {

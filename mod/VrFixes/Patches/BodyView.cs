@@ -14,8 +14,6 @@ namespace VrFixes
     /// </summary>
     internal static class BodyView
     {
-        public static bool Enabled = true;
-
         private static readonly List<KeyValuePair<Renderer, ShadowCastingMode>> Changed = new List<KeyValuePair<Renderer, ShadowCastingMode>>();
         private static bool _shown, _armsWereActive, _handsWereActive;
 
@@ -23,7 +21,7 @@ namespace VrFixes
 
         public static void Show()
         {
-            if (_shown || !Enabled) return;
+            if (_shown) return;
             var adapter = LocalPlayer.vrAdapter;
             if (!adapter || adapter.PlayerMeshesToDisable == null) return;
             int headLayer = LayerMask.NameToLayer("Camera");

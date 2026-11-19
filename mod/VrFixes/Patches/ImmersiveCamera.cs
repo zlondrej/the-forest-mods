@@ -13,8 +13,8 @@ namespace VrFixes
     /// During scripted animations VR switches to "theatre mode": the scene is shown on a screen in a small dark room. Every
     /// such action sets VRPlayerControl.useGhostMode, and VRTheatreController switches the theatre on whenever that flag is
     /// set, without knowing why. Here each action notes its case when it starts; when the theatre is about to switch on,
-    /// a case set to immersive skips it, so the view stays first person. Ghost mode itself (the animation driving the
-    /// body) is unchanged.
+    /// a case set to immersive skips it, so the view stays first person, pinned to the character's head with the headset
+    /// only rotating it (see <see cref="HeadPin"/>). Ghost mode itself (the animation driving the body) is unchanged.
     /// </summary>
     internal static class ImmersiveCamera
     {
@@ -22,9 +22,6 @@ namespace VrFixes
 
         /// <summary>Per case: true = immersive (first person), false = theatre (vanilla).</summary>
         internal static readonly Dictionary<Case, bool> Immersive = new Dictionary<Case, bool>();
-
-        /// <summary>Per immersive case: true = the headset only rotates the view, which is pinned to the character's head.</summary>
-        internal static readonly Dictionary<Case, bool> RotationOnly = new Dictionary<Case, bool>();
 
         private sealed class Trigger
         {
@@ -123,12 +120,12 @@ namespace VrFixes
         private static void StartStoryScenes() => Started(Case.StoryScenes);
         /// <summary>
         /// The hanging scene starts (teleport, hanging pose) well before it turns ghost mode on, and the view fell through
-        /// the ground meanwhile: pin it right away when the scene is first person with rotation only.
+        /// the ground meanwhile: pin it right away when the scene is first person.
         /// </summary>
         private static void StartHangingInCave()
         {
             Started(Case.HangingInCave);
-            if (!ForestVR.Enabled || !Is(Immersive, Case.HangingInCave) || !Is(RotationOnly, Case.HangingInCave)) return;
+            if (!ForestVR.Enabled || !Is(Immersive, Case.HangingInCave)) return;
             _hangingSince = UnityEngine.Time.time;
             _hangingSeen = false;
             HeadPin.Start(StillHanging);
@@ -169,49 +166,22 @@ namespace VrFixes
             _skipping = _case;
             KeepRigOnHead(__instance);
             BodyView.Show();
-            if (Is(RotationOnly, _case))
+            // Climbing: pinned only while getting on and off the rope or wall; on it, the headset moves the view
+            // horizontally (its height stays at the head).
+            HeadPin.Start(_case == Case.HangingInCave ? StillHanging : (Func<bool>)null,
+                _case == Case.Climbing ? InClimbTransition : (Func<bool>)null);
+            // The body plays the scene as in the theatre (skeleton on the body), so the animator gets the theatre's
+            // ghostMode flag too: without it the scene's full-body animations don't finish (cut down from hanging, the
+            // fall never reached idle, so the controls never came back).
+            if (HeadPin.On && !__instance.ghostFromTheatreMode)
             {
-                HeadPin.Start(_case == Case.HangingInCave ? StillHanging : (Func<bool>)null,
-                    _case == Case.Climbing && ClimbingFreeOnRope ? InClimbTransition : (Func<bool>)null);
-                // The body plays the scene as in the theatre (skeleton on the body), so the animator gets the theatre's
-                // ghostMode flag too: without it the scene's full-body animations don't finish (cut down from hanging,
-                // the fall never reached idle, so the controls never came back).
-                if (HeadPin.On && !__instance.ghostFromTheatreMode)
-                {
-                    __instance.ghostFromTheatreMode = true;
-                    _setGhostFlag = true;
-                }
+                __instance.ghostFromTheatreMode = true;
+                _setGhostFlag = true;
             }
-            else if (AlignViewAtStart && !_aligned)
-            {
-                AlignViewToCharacter();
-            }
-            _aligned = true;
             return false;
         }
 
-        /// <summary>At the start of a first-person scene, turn and move the view to the character's (see <see cref="AlignViewToCharacter"/>).</summary>
-        internal static bool AlignViewAtStart = true;
-
-        private static bool _aligned;       // view aligned (or pinned) for this scene
         private static bool _setGhostFlag;  // ghostFromTheatreMode set here, to clear when the scene ends
-
-        /// <summary>
-        /// The player's view looks where the character looks and sits (horizontally) at its head, as in flat-screen when
-        /// the scene starts: the VR rig is turned around the eye so the view's heading matches the camera anchor's (the
-        /// character's direction), and moved so the eye is over the head. Height stays the player's own. The headset
-        /// tracks normally from there.
-        /// </summary>
-        private static void AlignViewToCharacter()
-        {
-            var vr = LocalPlayer.vrPlayerControl;
-            var eye = LocalPlayer.MainCamTr;
-            if (!vr || !vr.VRCameraRig || !eye || !HeadPin.FlatView(out var position, out var rotation)) return;
-            HeadPin.AlignView(vr.VRCameraRig, eye, position, HeadPin.Heading(rotation));
-        }
-
-        /// <summary>Climbing with rotation only: pin the view only while getting on and off, free on the rope.</summary>
-        internal static bool ClimbingFreeOnRope = true;
 
         private static readonly int ClimbingTag = Animator.StringToHash("climbing");
         private static readonly int ClimbIdleTag = Animator.StringToHash("climbIdle");
@@ -326,7 +296,7 @@ namespace VrFixes
             HeadPin.Abandon();
             BodyView.Abandon();
             _case = _skipping = _sceneCase = Case.None;
-            _wasGhost = _aligned = _setGhostFlag = false;
+            _wasGhost = _setGhostFlag = false;
             _drownedAt = float.NegativeInfinity;
             _planeIntro = false;
         }
@@ -358,7 +328,6 @@ namespace VrFixes
                 }
                 if (_setGhostFlag && !__instance.theatreOn) __instance.ghostFromTheatreMode = false;
                 _setGhostFlag = false;
-                _aligned = false;
                 // Forget the case, unless the next scene already noted its own (dying outside the caves, the death
                 // scene ends in the very frame the drag-away scene starts).
                 if (_case == _sceneCase) _case = Case.None;
