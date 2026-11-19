@@ -184,29 +184,29 @@ namespace ArrowFixes
                 info = $"look-down={lookY:0.00} (needs < -0.85)";
                 return lookY < -0.85f;
             }
-            var bowTr = bowView._held ? bowView._held.transform : bow.transform;
-            var hand = BowHand(bowTr.position);
-            var toBow = (hand ? hand.position : bowTr.position) - cam.position;
+            var hand = BowHand();
+            var toBow = (hand ? hand.position : (bowView._held ? bowView._held.transform : bow.transform).position) - cam.position;
             float angle = toBow.sqrMagnitude > 1e-6f ? Vector3.Angle(cam.forward, toBow) : 0f;
             info = $"angle to the bow hand={angle:0}° (needs < {VrBowLookAngle:0}°)";
             return angle < VrBowLookAngle;
         }
 
+        // The game's VR option "right handed bow" (PlayerPreferences.VRUseRightHandedBow, VR build only): drawing with
+        // the right hand, the bow in the left; off, the bow in the right hand.
+        private static readonly System.Reflection.FieldInfo RightHandedBow =
+            AccessTools.Field(typeof(PlayerPreferences), "VRUseRightHandedBow");
+
         /// <summary>
-        /// The VR controller holding the bow (the one nearer the bow, so left-handed play works too). Looking at it is
-        /// looking at the bow; the held bow object's own position lies well above the bow (too high to look at).
-        /// The controllers' type (Valve's Hand) differs per build, so they are read as plain components.
+        /// The VR controller holding the bow, by the game's "right handed bow" option. Looking at it is looking at the
+        /// bow; the held bow object's own position lies well above the bow (too high to look at). The controllers'
+        /// type (Valve's Hand) differs per build, so they are read as plain components.
         /// </summary>
-        private static Transform BowHand(Vector3 bow)
+        private static Transform BowHand()
         {
             var vr = LocalPlayer.vrPlayerControl;
             if (!vr) return null;
-            Transform Hand(string field) => Traverse.Create(vr).Field(field).GetValue() is Component c && c ? c.transform : null;
-            var left = Hand("LeftHand");
-            var right = Hand("RightHand");
-            if (!left) return right;
-            if (!right) return left;
-            return (left.position - bow).sqrMagnitude <= (right.position - bow).sqrMagnitude ? left : right;
+            bool rightHanded = RightHandedBow == null || (bool)RightHandedBow.GetValue(null);
+            return Traverse.Create(vr).Field(rightHanded ? "LeftHand" : "RightHand").GetValue() is Component c && c ? c.transform : null;
         }
 
         /// <summary>
