@@ -151,7 +151,7 @@ namespace ArrowFixes
                 SetIcon(false);
                 return;
             }
-            SetIcon(true, selected, bowView._held ? bowView._held.transform : bow.transform);
+            SetIcon(true, selected);
             if (!pressed) return;
 
             LocalPlayer.Sfx.PlayWhoosh();
@@ -208,18 +208,9 @@ namespace ArrowFixes
             Dbg.Log("cycle: switched away from a lit arrow; flame put out, cloth kept");
         }
 
-        /// <summary>
-        /// The "switch arrow type" prompt; while shown, its arrow icon is the currently selected type. VR, looking at
-        /// the bow: shown next to the bow (<see cref="BowCycleIcon"/>), not at the HUD's fixed spot.
-        /// </summary>
-        private static void SetIcon(bool show, ArrowKey current = default(ArrowKey), Transform bow = null)
+        /// <summary>The "switch arrow type" prompt; while shown, its arrow icon is the currently selected type.</summary>
+        private static void SetIcon(bool show, ArrowKey current = default(ArrowKey))
         {
-            if (ForestVR.Enabled && VrLookAtBow && VrBowLookAngle > 0f)
-            {
-                if (show) BowCycleIcon.Show(bow, ArrowIconTextures.For(current), LocalPlayer.MainCamTr);
-                else BowCycleIcon.Hide();
-                return;
-            }
             var icon = Scene.HudGui ? Scene.HudGui.ToggleArrowBonusIcon : null;
             if (!icon) return;
             if (show)

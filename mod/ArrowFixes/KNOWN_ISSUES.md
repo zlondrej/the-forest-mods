@@ -29,7 +29,7 @@ Played briefly in VR only; the flat-screen build and multiplayer are only checke
 
 ## VR
 
-- **Switching arrow type: look at the bow.** Look at the bow in your hand (within 25°) and press Rotate (left trigger by default); you hear a whoosh when it switches. While you can switch, the selected type's icon floats just above the bow (vanilla's HUD icon sat at a fixed spot meant for looking down). Vanilla needed a steep look down instead; set `[Cycling] VrLookAtBow = false` to get that back, or change the angle with `VrBowLookAngle`.
+- **Switching arrow type: look at the bow.** Look at the bow in your hand (within 25°) and press Rotate (left trigger by default); you hear a whoosh when it switches. Vanilla needed a steep look down instead; set `[Cycling] VrLookAtBow = false` to get that back, or change the angle with `VrBowLookAngle`.
 - **Lighting is button-only.** Holding Lighter for 0.5 s lights the arrow, without taking out the lighter: there is no lighter animation and you don't need the lighter in your hand. A short press still takes out the lighter, but with a cloth arrow on the bow it comes out when you release the button, not when you press it (the press could still turn into a hold). Flat-screen is unchanged: there, pressing L takes out the lighter right away and holding it also lights the arrow with the lighter.
 - **Lighting by touching a fire is still broken.** The game's own way of lighting an arrow by holding it to a fire is untouched. It still doesn't work while an arrow is nocked.
 
