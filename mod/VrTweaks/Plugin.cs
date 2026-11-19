@@ -26,6 +26,18 @@ namespace VrTweaks
             Apply(harmony, "ThrowOnRelease", typeof(ThrowOnReleasePatch));
             Apply(harmony, "InventoryButtonOpensMenu", typeof(MenuButtonPatch));
 
+            BuildingRotationPatch.Ratio = Config.Bind("BuildingRotation", "HandTwistRatio", BuildingRotationPatch.Ratio,
+                "Placing a building in VR: twisting the hand that aims (around where it points, like turning a knob) turns the building by this many degrees per degree of twist (2: a quarter turn of the hand turns it half around). Negative = the other way, 0 = off.").Value;
+            BuildingRotationPatch.OnlyWhileRotateHeld = Config.Bind("BuildingRotation", "OnlyWhileRotateHeld", BuildingRotationPatch.OnlyWhileRotateHeld,
+                "true = the hand turns the building only while you hold the rotate button; false = always, on top of the rotate input.").Value;
+            try
+            {
+                Log.LogInfo(BuildingRotationPatch.Apply(harmony)
+                    ? "BuildingRotation: applied"
+                    : "BuildingRotation: not applied (VR build only)");
+            }
+            catch (Exception e) { Log.LogError($"BuildingRotation: failed to apply. {e}"); }
+
             _airHud = Config.Bind("UnderwaterAirBar", "Enabled", true,
                 "Show the underwater air bar in VR, in front of the view (vanilla VR never shows it).").Value;
             AirHud.Distance = Config.Bind("UnderwaterAirBar", "Distance", AirHud.Distance, "Distance from the eyes, in metres.").Value;

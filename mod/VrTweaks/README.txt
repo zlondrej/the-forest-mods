@@ -30,12 +30,16 @@ WHAT IT DOES
   - Throwing (spear, molotov, bombs, rocks, balls) only throws when you release the throw trigger. Vanilla also
     threw when you pressed it while your hand was moving, e.g. backwards while winding up.
   - Ropes: sprint + stick down starts the fast slide, as in flat-screen (vanilla VR almost never started it).
+  - Building placement: while you hold the rotate button, twisting the aiming hand like a knob turns the building
+    (a quarter turn of the hand turns it half around).
 
 SETTINGS
   In BepInEx\config\forestmods.vrtweaks.cfg (created on first start; read when the game starts):
   - [ImmersiveCamera]: each scene can go back to theatre mode (false), and the smoothing of the first-person view
     can be tuned.
   - [UnderwaterAirBar]: on/off, distance, height, size and blur of the air bar.
+  - [BuildingRotation]: how much the hand twist turns a building (0 = off), and whether only while the rotate button
+    is held.
   The other fixes are always on.
 
 CREDITS

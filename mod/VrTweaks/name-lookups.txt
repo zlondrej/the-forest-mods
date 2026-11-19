@@ -20,3 +20,5 @@ HudGui::TogglePauseMenu
 TheForest.Items.Inventory.PlayerInventory::Update
 ?TheForest.Items.Inventory.PlayerInventory::_inventoryToggledTime
 HudGui::VRPauseMenuCam
+?KeepAboveTerrain::UpdateRotateInput
+KeepAboveTerrain::turn
