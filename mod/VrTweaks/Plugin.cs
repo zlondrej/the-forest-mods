@@ -115,14 +115,26 @@ namespace VrTweaks
                 try { ImmersiveCamera.CheckPlayerGone(); }
                 catch (Exception e) { Log.LogError($"ImmersiveCamera: {e}"); }
             }
-            if (!_airHud) return;
-            try { AirHud.UpdateCamera(); }
-            catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
+            if (_airHud)
+            {
+                try { AirHud.UpdateCamera(); }
+                catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
+            }
             if (Time.unscaledTime < _nextTick) return;
             _nextTick = Time.unscaledTime + 0.5f;
-            try { AirHud.Tick(); }
-            catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
+            if (_airHud)
+            {
+                try { AirHud.Tick(); }
+                catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
+            }
+            if (_meatIcons)
+            {
+                try { MeatIcons.Tick(); }
+                catch (Exception e) { Log.LogError($"SmallMeatIcon: {e}"); _meatIcons = false; }
+            }
         }
+
+        private bool _meatIcons = true;
 
         private static bool Apply(Harmony harmony, string key, params Type[] patchClasses)
         {
