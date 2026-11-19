@@ -31,6 +31,16 @@ foreach (var spec in new[] { ClothWrapSpecs.Bone, ClothWrapSpecs.Modern })
     Console.WriteLine($"{path}: {m.Positions.Length / 3} vertices, {m.Triangles.Length / 3} triangles");
 }
 
+// Optional: the game's stick/bone HUD icons as PNG (extracted from the game's assets; the plugin reads them in game)
+// for the material badges: --stick <png> --bone <png>. Without them, the drawn fallbacks.
+for (int i = 1; i + 1 < args.Length; i += 2)
+{
+    var arrow = args[i] == "--stick" ? IconBase.Wooden : args[i] == "--bone" ? IconBase.Bone : (IconBase?)null;
+    if (arrow == null) continue;
+    using var stream = File.OpenRead(args[i + 1]);
+    ArrowIconPainter.SetMaterialBadge(arrow.Value, PngMask.Read(stream).AsSolidShape());
+}
+
 const int iconSize = 152; // same as the game's arrow icon
 foreach (IconBase b in Enum.GetValues(typeof(IconBase)))
 foreach (IconCoating c in Enum.GetValues(typeof(IconCoating)))

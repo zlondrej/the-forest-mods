@@ -12,8 +12,9 @@ namespace ArrowFixes
     /// chalky look (all in the transparency: grainy, speckled, rough edges; no outline, no colour), in the same size and
     /// proportions. Wooden copies the game icon (leaf head, fanned feathers), bone has a wide barbed head, modern a
     /// shaft that tapers into a point, two see-through stripes across it and short vanes. A badge in the empty top-left corner
-    /// shows the upgrade (Icons/flame.png, Icons/poison.png, used as shapes), one in the bottom-right the material (a bone,
-    /// a hex nut for modern; none for wooden). Plain RGBA pixels, no Unity types, so
+    /// shows the upgrade (Icons/flame.png, Icons/poison.png, used as shapes), one in the bottom-right the material (the
+    /// game's own stick and bone HUD icons when set, <see cref="SetMaterialBadge"/>; a hex nut for modern; drawn
+    /// fallbacks otherwise). Plain RGBA pixels, no Unity types, so
     /// scripts/ClothPreview produces the identical images.
     /// </summary>
     internal static class ArrowIconPainter
@@ -22,6 +23,18 @@ namespace ArrowFixes
         private const float BadgeX = 0.09f, BadgeY = 0.59f, BadgeSize = 0.30f; // coating badge box in icon space (y up)
         private const float MaterialX = 0.61f, MaterialY = 0.09f; // material badge box (same size), bottom-right
         private static readonly Dictionary<IconCoating, PngMask> Badges = new Dictionary<IconCoating, PngMask>();
+        private static readonly Dictionary<IconBase, PngMask> MaterialMasks = new Dictionary<IconBase, PngMask>();
+
+        /// <summary>
+        /// The material badge's shape for an arrow base, e.g. the game's own stick and bone HUD icons (see GameBadges);
+        /// without one, wooden has none, bone and modern get a drawn bone and hex nut. Not thread-safe: set it under
+        /// the painting lock.
+        /// </summary>
+        public static void SetMaterialBadge(IconBase arrow, PngMask shape)
+        {
+            if (shape == null) MaterialMasks.Remove(arrow);
+            else MaterialMasks[arrow] = shape;
+        }
 
         /// <summary>RGBA pixels, bottom row first (Unity's Texture2D order). White; the shape is in the alpha.</summary>
         public static byte[] Paint(IconBase arrow, IconCoating coating, int size)
@@ -80,7 +93,13 @@ namespace ArrowFixes
                 float b = badge.Sample((px - BadgeX) / BadgeSize, 1f - (py - BadgeY) / BadgeSize);
                 if (b > 0f) return b;
             }
-            if (MaterialBadge(arrow, (px - MaterialX) / BadgeSize, (py - MaterialY) / BadgeSize)) return 1f;
+            float mu = (px - MaterialX) / BadgeSize, mv = (py - MaterialY) / BadgeSize;
+            if (MaterialMasks.TryGetValue(arrow, out var material))
+            {
+                float m = material.Sample(mu, 1f - mv);
+                if (m > 0f) return m;
+            }
+            else if (MaterialBadge(arrow, mu, mv)) return 1f;
             // Arrow space in pixels of the game's 152 px arrow icon, whose proportions these copy: the arrow lies on the
             // diagonal through the centre, s along it (towards the tip, up-right), t across.
             const float scale = 152f / 1.41421356f;

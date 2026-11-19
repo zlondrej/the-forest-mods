@@ -83,6 +83,64 @@ namespace ArrowFixes
             return new PngMask { Width = width, Height = height, _coverage = coverage };
         }
 
+        /// <summary>A mask from 8-bit alpha values, rows bottom first (Unity's texture order).</summary>
+        public static PngMask FromAlpha(int width, int height, byte[] alphaBottomUp)
+        {
+            var coverage = new float[width * height];
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+                coverage[y * width + x] = alphaBottomUp[(height - 1 - y) * width + x] / 255f;
+            return new PngMask { Width = width, Height = height, _coverage = coverage };
+        }
+
+        /// <summary>
+        /// The shape only: a game icon's chalky grain (see-through specks) filled in (grown by a pixel, then any real
+        /// coverage counts as solid), so the icon painter's own grain isn't added on top of it.
+        /// </summary>
+        public PngMask AsSolidShape()
+        {
+            var solid = new float[_coverage.Length];
+            for (int y = 0; y < Height; y++)
+            for (int x = 0; x < Width; x++)
+            {
+                float max = 0f;
+                for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int sx = x + dx, sy = y + dy;
+                    if (sx >= 0 && sx < Width && sy >= 0 && sy < Height) max = Math.Max(max, _coverage[sy * Width + sx]);
+                }
+                solid[y * Width + x] = Math.Max(0f, Math.Min(1f, (max - 0.08f) / 0.2f));
+            }
+            return new PngMask { Width = Width, Height = Height, _coverage = solid }.CroppedSquare();
+        }
+
+        /// <summary>The square around what is covered (centred, a pixel of margin), so the shape fills a badge box.</summary>
+        private PngMask CroppedSquare()
+        {
+            int minX = Width, minY = Height, maxX = -1, maxY = -1;
+            for (int y = 0; y < Height; y++)
+            for (int x = 0; x < Width; x++)
+            {
+                if (_coverage[y * Width + x] <= 0.1f) continue;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+            if (maxX < 0) return this;
+            int size = Math.Max(maxX - minX, maxY - minY) + 3;
+            int left = (minX + maxX) / 2 - size / 2, top = (minY + maxY) / 2 - size / 2;
+            var cropped = new float[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                int sx = left + x, sy = top + y;
+                cropped[y * size + x] = sx >= 0 && sx < Width && sy >= 0 && sy < Height ? _coverage[sy * Width + sx] : 0f;
+            }
+            return new PngMask { Width = size, Height = size, _coverage = cropped };
+        }
+
         /// <summary>Bilinear coverage at (u, v) in [0,1]², v = 0 at the top; 0 outside.</summary>
         public float Sample(float u, float v)
         {

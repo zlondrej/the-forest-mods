@@ -19,6 +19,23 @@ namespace ArrowFixes
 
         private static int Id(IconBase arrow, IconCoating coating) => (int)arrow * 3 + (int)coating;
 
+        /// <summary>
+        /// Use these shapes (the game's own icons, from GameBadges) as the material badges: icons painted so far are
+        /// dropped, so they are painted again with them.
+        /// </summary>
+        public static void UseMaterialBadges(PngMask stick, PngMask bone)
+        {
+            lock (PaintLock)
+            {
+                ArrowIconPainter.SetMaterialBadge(IconBase.Wooden, stick);
+                ArrowIconPainter.SetMaterialBadge(IconBase.Bone, bone);
+                Painted.Clear();
+            }
+            foreach (var texture in Textures.Values)
+                if (texture) Object.Destroy(texture);
+            Textures.Clear(); // shown icons are swapped for the new ones the next time they are shown (every frame)
+        }
+
         public static void PrepaintInBackground()
         {
             var thread = new System.Threading.Thread(() =>

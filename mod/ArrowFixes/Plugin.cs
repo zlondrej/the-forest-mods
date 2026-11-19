@@ -26,8 +26,6 @@ namespace ArrowFixes
                 Try("VerboseLogging", () => PatchClass(harmony, typeof(DebugBonusChangePatches)));
             }
 
-            ArrowIconTextures.PrepaintInBackground(); // so showing an icon the first time doesn't freeze a frame
-
             Apply(harmony, "BoneArrowPickup",
                 "Fired bone arrows give a bone arrow back when picked up (and stick into enemies as bone arrows).",
                 typeof(BoneArrowPickupPatch));
@@ -78,10 +76,20 @@ namespace ArrowFixes
         private bool _basketTypes;
         private float _nextTick;
 
+        private bool _iconBadges = true;
+
         private void Update()
         {
-            if (!_basketTypes || Time.unscaledTime < _nextTick) return;
+            if (Time.unscaledTime < _nextTick) return;
             _nextTick = Time.unscaledTime + 1f;
+            if (_iconBadges)
+            {
+                // The game's stick/bone icons as badges, then all arrow icons painted in the background (so showing
+                // one the first time doesn't freeze a frame).
+                try { GameBadges.Tick(); }
+                catch (Exception e) { Log.LogError($"Arrow icons: {e}"); _iconBadges = false; }
+            }
+            if (!_basketTypes) return;
             try { BasketVisuals.Tick(); }
             catch (Exception e) { Log.LogError($"ArrowBasketTypes: {e}"); _basketTypes = false; }
         }
