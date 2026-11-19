@@ -12,13 +12,15 @@ namespace ArrowFixes
     /// chalky look (all in the transparency: grainy, speckled, rough edges; no outline, no colour), in the same size and
     /// proportions. Wooden copies the game icon (leaf head, fanned feathers), bone has a wide barbed head, modern a
     /// shaft that tapers into a point, two see-through stripes across it and short vanes. A badge in the empty top-left corner
-    /// shows the upgrade (Icons/flame.png, Icons/poison.png, used as shapes). Plain RGBA pixels, no Unity types, so
+    /// shows the upgrade (Icons/flame.png, Icons/poison.png, used as shapes), one in the bottom-right the material (a bone,
+    /// a hex nut for modern; none for wooden). Plain RGBA pixels, no Unity types, so
     /// scripts/ClothPreview produces the identical images.
     /// </summary>
     internal static class ArrowIconPainter
     {
         private const int Supersample = 4;
-        private const float BadgeX = 0.09f, BadgeY = 0.59f, BadgeSize = 0.30f; // badge box in icon space (y up)
+        private const float BadgeX = 0.09f, BadgeY = 0.59f, BadgeSize = 0.30f; // coating badge box in icon space (y up)
+        private const float MaterialX = 0.61f, MaterialY = 0.09f; // material badge box (same size), bottom-right
         private static readonly Dictionary<IconCoating, PngMask> Badges = new Dictionary<IconCoating, PngMask>();
 
         /// <summary>RGBA pixels, bottom row first (Unity's Texture2D order). White; the shape is in the alpha.</summary>
@@ -78,6 +80,7 @@ namespace ArrowFixes
                 float b = badge.Sample((px - BadgeX) / BadgeSize, 1f - (py - BadgeY) / BadgeSize);
                 if (b > 0f) return b;
             }
+            if (MaterialBadge(arrow, (px - MaterialX) / BadgeSize, (py - MaterialY) / BadgeSize)) return 1f;
             // Arrow space in pixels of the game's 152 px arrow icon, whose proportions these copy: the arrow lies on the
             // diagonal through the centre, s along it (towards the tip, up-right), t across.
             const float scale = 152f / 1.41421356f;
@@ -102,6 +105,48 @@ namespace ArrowFixes
         }
 
         private static float Tent(float d, float halfWidth) => Math.Max(0f, 1f - Math.Abs(d) / halfWidth);
+
+        /// <summary>
+        /// The material badge in the empty bottom-right corner, (u, v) in [0,1]² (v up): a bone for bone arrows, a hex
+        /// nut for modern ones (machined metal); wooden, the basic arrow, has none.
+        /// </summary>
+        private static bool MaterialBadge(IconBase arrow, float u, float v)
+        {
+            if (u < 0f || u > 1f || v < 0f || v > 1f) return false;
+            float x = u - 0.5f, y = v - 0.5f;
+            switch (arrow)
+            {
+                case IconBase.Bone:
+                {
+                    // a cartoon bone lying across the arrow's direction (top-left to bottom-right)
+                    const float c = 0.7071068f;
+                    float a = (x - y) * c, b = (x + y) * c; // a along the bone, b across
+                    if (Math.Abs(a) <= 0.34f && Math.Abs(b) <= 0.085f) return true; // shaft
+                    foreach (float end in new[] { -0.35f, 0.35f })
+                    foreach (float side in new[] { -0.097f, 0.097f })
+                    {
+                        float da = a - end, db = b - side;
+                        if (da * da + db * db <= 0.13f * 0.13f) return true; // knobs
+                    }
+                    return false;
+                }
+                case IconBase.Modern:
+                {
+                    // a hex nut: a hexagon with a round hole
+                    float r = (float)Math.Sqrt(x * x + y * y);
+                    if (r < 0.17f) return false;
+                    const float apothem = 0.36f; // flat sides at this distance from the centre
+                    for (int k = 0; k < 6; k++)
+                    {
+                        double angle = k * Math.PI / 3;
+                        if (x * Math.Cos(angle) + y * Math.Sin(angle) > apothem) return false;
+                    }
+                    return true;
+                }
+                default:
+                    return false;
+            }
+        }
 
         private static bool Shaft(IconBase arrow, float s, float t)
         {
