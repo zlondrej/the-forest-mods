@@ -216,7 +216,7 @@ namespace VrTweaks
             if (_meatIcons)
             {
                 try { MeatIcons.Tick(); }
-                catch (Exception e) { Log.LogError($"SmallMeatIcon: {e}"); _meatIcons = false; }
+                catch (Exception e) { Log.LogError($"MeatIcons: {e}"); _meatIcons = false; }
             }
             if (_playerBody)
             {

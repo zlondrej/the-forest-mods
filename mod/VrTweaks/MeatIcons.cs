@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using ArrowFixes;
 using TheForest.Items;
 using TheForest.UI;
 using TheForest.Utils;
@@ -6,87 +8,102 @@ using UnityEngine;
 namespace VrTweaks
 {
     /// <summary>
-    /// The HUD's item widgets (fire, drying rack, stew pot, door weights) show small meat with the very same picture as
-    /// meat (only the text label differs). Here small meat gets its own icon: the meat, smaller, with the game's rabbit
-    /// icon (small game) above it, made from the game's own HUD icons when the HUD loads. If the rabbit icon isn't
-    /// found, the meat is only drawn smaller.
+    /// The HUD's item widgets (fire, drying rack, stew pot, door weights) show meat and small meat with the very same
+    /// picture (only the text label differs). Here both get a size badge: the meat a little smaller, bottom left, and
+    /// a rounded square with "L" (meat) or "S" (small meat) cut out, top right. The badges ship with the mod
+    /// (Icons/Badge*.png, rendered by scripts/meat-badges.py); the meat is the game's own icon, combined when the HUD
+    /// loads.
     /// </summary>
     internal static class MeatIcons
     {
-        public const float SmallScale = 0.7f;
-
-        // Where the two pictures go in the new icon: centre (0..1, from the bottom left) and size, of the icon's size.
-        private static readonly Vector2 MeatCentre = new Vector2(0.60f, 0.38f), RabbitCentre = new Vector2(0.32f, 0.70f);
-        private const float MeatSize = 0.72f, RabbitSize = 0.62f;
+        // Where things go in the icon: centre (0..1, from the bottom left) and size, of the icon's size.
+        private static readonly Vector2 MeatCentre = new Vector2(0.489f, 0.380f), BadgeCentre = new Vector2(0.805f, 0.782f);
+        private const float MeatSize = 1.047f, BadgeSize = 0.24f; // BadgeSize: as in scripts/meat-badges.py
+        private static readonly Color32 Chalk = new Color32(251, 251, 251, 255); // the game's icon white
 
         private static HudGui _done;
-        private static Texture2D _icon;
-        private static Texture _iconMeat;
+        private static readonly Dictionary<string, PngMask> Badges = new Dictionary<string, PngMask>();
+        private static readonly Dictionary<string, Texture2D> Made = new Dictionary<string, Texture2D>();
 
-        /// <summary>A few times per second: once per HUD (it is recreated on load), the small meat icons.</summary>
+        /// <summary>A few times per second: once per HUD (it is recreated on load), the meat icons.</summary>
         public static void Tick()
         {
             if (!ForestVR.Enabled) return;
             var hud = Scene.HudGui;
             if (!hud || hud == _done || ItemDatabase.Items == null) return;
             _done = hud;
-            int replaced = 0, shrunk = 0;
+            int large = 0, small = 0;
             foreach (var entry in hud.GetComponentsInChildren<ItemListWidgetEntry>(true))
             {
-                if (!entry || !entry._icon || entry._itemIds == null || entry._itemIds.Length != 1 || !IsSmallMeat(entry._itemIds[0])) continue;
+                if (!entry || entry._itemIds == null || entry._itemIds.Length != 1) continue;
                 var texture = entry._icon as UITexture;
-                var icon = texture ? SmallMeatIcon(texture.mainTexture) : null;
-                if (icon)
-                {
-                    texture.mainTexture = icon;
-                    replaced++;
-                }
-                else
-                {
-                    entry._icon.width = Mathf.RoundToInt(entry._icon.width * SmallScale);
-                    entry._icon.height = Mathf.RoundToInt(entry._icon.height * SmallScale);
-                    shrunk++;
-                }
+                string letter = SizeLetter(entry._itemIds[0]);
+                if (!texture || letter == null) continue;
+                var icon = Badged(texture.mainTexture, letter);
+                if (!icon) continue;
+                texture.mainTexture = icon;
+                if (letter == "S") small++;
+                else large++;
             }
-            Plugin.Log.LogInfo($"SmallMeatIcon: {replaced} small meat icons with the rabbit, {shrunk} drawn smaller");
+            Plugin.Log.LogInfo($"MeatIcons: size badges on {large} meat and {small} small meat icons");
         }
 
-        // By name ("SmallGenericMeat" and any cooked/dried variants): the ids are the game's business.
-        private static bool IsSmallMeat(int itemId)
+        /// <summary>"L" for meat, "S" for small meat, by item name ("GenericMeat", "SmallGenericMeat"); else null.</summary>
+        private static string SizeLetter(int itemId)
         {
             var item = ItemDatabase.IsItemidValid(itemId) ? ItemDatabase.ItemById(itemId) : null;
-            if (item == null || string.IsNullOrEmpty(item._name)) return false;
+            if (item == null || string.IsNullOrEmpty(item._name)) return null;
             var name = item._name.ToLowerInvariant();
-            return name.Contains("small") && name.Contains("meat");
+            if (!name.Contains("meat") || name.Contains("turtle")) return null;
+            return name.Contains("small") ? "S" : "L";
         }
 
-        /// <summary>The small meat icon made from <paramref name="meat"/> (made once, reused); null without a rabbit icon.</summary>
-        private static Texture2D SmallMeatIcon(Texture meat)
+        /// <summary>The game's meat icon with the size badge (made once per letter, reused).</summary>
+        private static Texture2D Badged(Texture meat, string letter)
         {
             if (!meat) return null;
-            if (_icon && _iconMeat == meat) return _icon;
-            var rabbit = FindTexture("Rabbit");
-            if (!rabbit) return null;
+            var key = meat.GetInstanceID() + letter;
+            if (Made.TryGetValue(key, out var made) && made) return made;
+            var badge = Badge(letter);
+            if (badge == null) return null;
             int w = meat.width, h = meat.height;
-            var meatPixels = Read(meat, w, h);
-            var rabbitPixels = Read(rabbit, rabbit.width, rabbit.height);
             var pixels = new Color32[w * h];
-            Draw(pixels, w, h, meatPixels, w, h, MeatCentre, MeatSize);
-            Draw(pixels, w, h, rabbitPixels, rabbit.width, rabbit.height, RabbitCentre, RabbitSize);
-            if (_icon) Object.Destroy(_icon);
-            _icon = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "VrTweaks_SmallMeat", wrapMode = TextureWrapMode.Clamp };
-            _icon.SetPixels32(pixels);
-            _icon.Apply(false, true);
-            Object.DontDestroyOnLoad(_icon);
-            _iconMeat = meat;
-            return _icon;
+            Draw(pixels, w, h, Read(meat, w, h), w, h, MeatCentre, MeatSize);
+            DrawBadge(pixels, w, h, badge);
+            var icon = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "VrTweaks_Meat" + letter, wrapMode = TextureWrapMode.Clamp };
+            icon.SetPixels32(pixels);
+            icon.Apply(false, true);
+            Object.DontDestroyOnLoad(icon);
+            Made[key] = icon;
+            return icon;
         }
 
-        private static Texture2D FindTexture(string name)
+        private static PngMask Badge(string letter)
         {
-            foreach (var texture in Resources.FindObjectsOfTypeAll<Texture2D>())
-                if (texture && texture.name == name) return texture;
-            return null;
+            if (Badges.TryGetValue(letter, out var badge)) return badge;
+            var name = $"VrTweaks.Icons.Badge{letter}.png";
+            using (var stream = typeof(MeatIcons).Assembly.GetManifestResourceStream(name))
+                badge = stream == null ? null : PngMask.Read(stream);
+            if (badge == null) Plugin.Log.LogWarning($"MeatIcons: {name} missing from the plugin");
+            Badges[letter] = badge;
+            return badge;
+        }
+
+        /// <summary>The badge in its corner (pixel for pixel when its size matches, as for the game's 152 px icons).</summary>
+        private static void DrawBadge(Color32[] dst, int w, int h, PngMask badge)
+        {
+            int size = Mathf.RoundToInt(w * BadgeSize);
+            int left = Mathf.RoundToInt(BadgeCentre.x * w - size / 2f), bottom = Mathf.RoundToInt(BadgeCentre.y * h - size / 2f);
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                int px = left + x, py = bottom + y;
+                if (px < 0 || px >= w || py < 0 || py >= h) continue;
+                // The mask's rows are top first; the texture's bottom first.
+                float a = badge.Sample(size > 1 ? x / (size - 1f) : 0f, size > 1 ? 1f - y / (size - 1f) : 0f);
+                if (a <= 0f) continue;
+                Blend(dst, py * w + px, new Color(Chalk.r / 255f, Chalk.g / 255f, Chalk.b / 255f, a));
+            }
         }
 
         /// <summary>A texture's pixels (HUD textures aren't readable: drawn into a render texture and read back).</summary>
@@ -122,13 +139,16 @@ namespace VrTweaks
                 float u = (x + 0.5f - left) / width, v = (y + 0.5f - bottom) / height;
                 if (u < 0f || u > 1f || v < 0f || v > 1f) continue;
                 var c = Sample(src, sw, sh, u, v);
-                if (c.a <= 0f) continue;
-                int i = y * dw + x;
-                Color under = dst[i];
-                float a = c.a + under.a * (1f - c.a);
-                var rgb = a > 0f ? ((Color)c * c.a + under * under.a * (1f - c.a)) / a : Color.clear;
-                dst[i] = new Color(rgb.r, rgb.g, rgb.b, a);
+                if (c.a > 0f) Blend(dst, y * dw + x, c);
             }
+        }
+
+        private static void Blend(Color32[] dst, int i, Color c)
+        {
+            Color under = dst[i];
+            float a = c.a + under.a * (1f - c.a);
+            var rgb = a > 0f ? (c * c.a + under * under.a * (1f - c.a)) / a : Color.clear;
+            dst[i] = new Color(rgb.r, rgb.g, rgb.b, a);
         }
 
         private static Color Sample(Color32[] src, int w, int h, float u, float v)

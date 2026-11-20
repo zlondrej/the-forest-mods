@@ -41,8 +41,8 @@ WHAT IT DOES
     (a quarter turn of the hand turns it half around; a TILT sign shows at the hand). The building keeps facing you
     as you turn around in your room, and stays as far as you aim (vanilla brought it up to your feet when you turned
     without your body turning along).
-  - Small meat has its own icon in the fire, drying rack and other item prompts: the meat with a rabbit above it
-    (vanilla showed the very same picture as meat).
+  - Meat and small meat are told apart in the fire, drying rack and other item prompts: an "L" or "S" badge on the
+    meat icon (vanilla showed the very same picture for both).
 
 SETTINGS
   In BepInEx\config\forestmods.vrtweaks.cfg (created on first start). Changes apply as soon as you save the file,
