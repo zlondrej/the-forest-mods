@@ -20,7 +20,7 @@ WHAT IT DOES
     They get their own cloth wrap and tint, in the inventory and on the bow.
   - Arrow-type switching treats e.g. flaming bone and flaming wooden arrows as separate types, and the prompt shows
     an icon of the selected type (badges for the coating and for bone/modern). Press Rotate while looking down, or in
-    VR while looking at the bow in your hand.
+    VR while looking at the hand you press Rotate with.
   - Arrow basket: Rotate picks the arrow type to put in / take out, the arrows in the basket show their type.
   - Crafting mat keeps arrow types apart (no more arrows turning into other types).
   - Switching arrow type while an arrow is lit puts the flame out and keeps the cloth.

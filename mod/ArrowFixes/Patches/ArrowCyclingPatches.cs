@@ -165,14 +165,14 @@ namespace ArrowFixes
             Dbg.Log($"cycle: switched to {next}; bow {Dbg.Props(bowView.Properties)}, next arrow {(now ? Dbg.Props(now.Properties) : "none")}");
         }
 
-        /// <summary>VR: switch arrow type while looking at the bow (else the vanilla look down).</summary>
+        /// <summary>VR: switch arrow type while looking at the hand with the Rotate button (else the vanilla look down).</summary>
         public static bool VrLookAtBow = true;
 
         /// <summary>Max angle between the view and the bow, in VR, to switch arrow type.</summary>
         public static float VrBowLookAngle = 25f;
 
         /// <summary>
-        /// Flat-screen: look down steeply, as in vanilla. VR: look at the bow in your hand (vanilla's steep look down
+        /// Flat-screen: look down steeply, as in vanilla. VR: look at the hand with the Rotate button (vanilla's steep look down
         /// is uncomfortable with a headset).
         /// </summary>
         private static bool LookingToCycle(BowController bow, InventoryItemView bowView, out string info)
@@ -184,18 +184,30 @@ namespace ArrowFixes
                 info = $"look-down={lookY:0.00} (needs < -0.85)";
                 return lookY < -0.85f;
             }
-            var hand = BowHand();
-            var toBow = (hand ? hand.position : (bowView._held ? bowView._held.transform : bow.transform).position) - cam.position;
-            float angle = toBow.sqrMagnitude > 1e-6f ? Vector3.Angle(cam.forward, toBow) : 0f;
-            info = $"angle to the bow hand={angle:0}° (needs < {VrBowLookAngle:0}°)";
+            // The hand with the Rotate button (either, if both have it): you look at the hand you press it on,
+            // whichever hand holds the bow. Unknown: the bow's hand.
+            var hands = VrRotateHands.Find();
+            string which = "the Rotate hand";
+            if (hands.Count == 0)
+            {
+                var bowHand = BowHand();
+                hands.Add(bowHand ? bowHand : bowView._held ? bowView._held.transform : bow.transform);
+                which = "the bow hand";
+            }
+            float angle = 180f;
+            foreach (var hand in hands)
+            {
+                var toHand = hand.position - cam.position;
+                angle = Mathf.Min(angle, toHand.sqrMagnitude > 1e-6f ? Vector3.Angle(cam.forward, toHand) : 0f);
+            }
+            info = $"angle to {which}={angle:0}° (needs < {VrBowLookAngle:0}°)";
             return angle < VrBowLookAngle;
         }
 
         /// <summary>
         /// The VR hand holding the bow. The game always attaches the VR bow to its "RightHand" hand object; for a
         /// right-handed bow (bow in the left hand) it mirrors the hands, so that object then follows the left
-        /// controller. Looking at it is looking at the bow; the held bow object's own position lies well above the bow
-        /// (too high to look at). Valve's Hand type differs per build, so it is read as a plain component.
+        /// controller. Valve's Hand type differs per build, so it is read as a plain component.
         /// </summary>
         private static Transform BowHand()
         {

@@ -45,11 +45,11 @@ namespace ArrowFixes
                 typeof(ArrowBasket));
 
             ArrowCyclingPatches.VrLookAtBow = Config.Bind("Cycling", "VrLookAtBow", true,
-                "VR: switch arrow type (Rotate) while looking at the bow in your hand. Off = vanilla: look straight down.").Value;
+                "VR: switch arrow type (Rotate) while looking at the hand you press Rotate with. Off = vanilla: look straight down.").Value;
             ArrowCyclingPatches.VrBowLookAngle = Config.Bind("Cycling", "VrBowLookAngle", ArrowCyclingPatches.VrBowLookAngle,
-                "VR, with VrLookAtBow on: how far (degrees) the view may point away from the bow.").Value;
+                "VR, with VrLookAtBow on: how far (degrees) the view may point away from that hand.").Value;
             Apply(harmony, "UpgradeComboCycling",
-                "Arrow-type cycling (Rotate while looking down; in VR while looking at the bow) treats e.g. flaming bone and flaming wooden arrows as separate types.",
+                "Arrow-type cycling (Rotate while looking down; in VR while looking at the Rotate hand) treats e.g. flaming bone and flaming wooden arrows as separate types.",
                 typeof(ArrowCyclingPatches));
 
             Apply(harmony, "UpgradeComboVisuals",
