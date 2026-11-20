@@ -30,17 +30,20 @@ WHAT IT DOES
   - Throwing (spear, molotov, bombs, rocks, balls) only throws when you release the throw trigger. Vanilla also
     threw when you pressed it while your hand was moving, e.g. backwards while winding up.
   - Ropes: sprint + stick down starts the fast slide, as in flat-screen (vanilla VR almost never started it).
-  - Your body is drawn (torso and legs, with clothes and armour; not the head, nor the bare arms: the VR hands are
-    drawn there), a little further back behind your eyes than vanilla puts it. Vanilla VR only draws its shadow.
+  - Your body is drawn (torso and legs, with clothes and the armour on arms and legs; not the head, the bare arms
+    (the VR hands are drawn there) or the backpack). Vanilla VR only draws its shadow. It stands upright with its
+    head under yours (vanilla leaned it forward, more so when you looked down); leaning in your room still leans it.
   - Handedness: the bow (crossbow, slingshot) follows only the "right handed bow" option; vanilla also put it in the
-    left hand with left-handed weapons. With the hands mirrored (bow in the left hand, or left-handed weapons), the
-    body's arms reach for the controller on their own side instead of crossing over.
+    left hand with left-handed weapons. The quick-select backpack always opens in the left hand (the held weapon
+    moves to the right hand meanwhile). With the hands mirrored (bow in the left hand, or left-handed weapons), the
+    body's arms reach for the controller on their own side instead of crossing over (what they hold still changes
+    hands). Elbows always fold down and away from the body, for other VR players too as you see them.
   - Typing in VR (multiplayer server filter, passwords, server name): the field shows what you type on the SteamVR
     keyboard as you type (vanilla kept only the last letter), and the keyboard opens again after Done.
   - Building placement: while you hold the rotate button, twisting the aiming hand like a knob turns the building
-    (a quarter turn of the hand turns it half around; a TILT sign shows at the hand). The building keeps facing you
-    as you turn around in your room, and stays as far as you aim (vanilla brought it up to your feet when you turned
-    without your body turning along).
+    (a quarter turn of the hand turns it half around; a double-headed arc arrow shows around the controller). The
+    building keeps facing you as you turn around in your room, and stays as far as you aim (vanilla brought it up to
+    your feet when you turned without your body turning along).
   - Meat and small meat are told apart in the fire, drying rack and other item prompts: an "L" or "S" badge on the
     meat icon (vanilla showed the very same picture for both).
 
@@ -51,8 +54,9 @@ SETTINGS
     can be tuned.
   - [UnderwaterAirBar]: on/off, distance, height, size and blur of the air bar.
   - [Movement] SprintThreshold: how far to push the stick to sprint with auto-run (0.85 = vanilla).
-  - [PlayerBody] Visible: draw your body (true) or only its shadow, as in vanilla (false); BackOffset: how far
-    further back behind your eyes it sits (metres).
+  - [PlayerBody] Visible: draw your body (true) or only its shadow, as in vanilla (false); BackOffset: how much
+    further back behind your eyes it sits (metres, 0 = as worked out, negative = forward); Armor: which armour is
+    drawn (None, Limbs = arms and legs only, All); Backpack: draw the backpack (off by default: it blocks the view).
   - [BuildingRotation]: how much the hand twist turns a building (0 = off), whether only while the rotate button
     is held, and whether the building keeps facing you as you turn.
   The other fixes are always on.

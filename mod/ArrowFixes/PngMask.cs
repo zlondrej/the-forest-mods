@@ -15,11 +15,45 @@ namespace ArrowFixes
 
         public static PngMask Read(Stream stream)
         {
+            var pixels = Decode(stream, out int width, out int height, out int channels);
+            var coverage = new float[width * height];
+            for (int i = 0; i < coverage.Length; i++)
+            {
+                int o = i * channels;
+                coverage[i] = channels == 4 ? pixels[o + 3] / 255f
+                    : channels == 2 ? pixels[o + 1] / 255f
+                    : 1f - (channels == 3 ? (pixels[o] + pixels[o + 1] + pixels[o + 2]) / 765f : pixels[o] / 255f);
+            }
+            return new PngMask { Width = width, Height = height, _coverage = coverage };
+        }
+
+        /// <summary>A PNG's pixels as RGBA bytes, rows top first.</summary>
+        public static byte[] ReadRgba(Stream stream, out int width, out int height)
+        {
+            var pixels = Decode(stream, out width, out height, out int channels);
+            var rgba = new byte[width * height * 4];
+            for (int i = 0; i < width * height; i++)
+            {
+                int o = i * channels;
+                byte grey = pixels[o];
+                rgba[i * 4] = grey;
+                rgba[i * 4 + 1] = channels >= 3 ? pixels[o + 1] : grey;
+                rgba[i * 4 + 2] = channels >= 3 ? pixels[o + 2] : grey;
+                rgba[i * 4 + 3] = channels == 4 ? pixels[o + 3] : channels == 2 ? pixels[o + 1] : (byte)255;
+            }
+            return rgba;
+        }
+
+        /// <summary>The raw 8-bit pixels (rows top first) of a non-interlaced PNG, and its channel count.</summary>
+        private static byte[] Decode(Stream stream, out int width, out int height, out int channels)
+        {
             var reader = new BinaryReader(stream);
             var signature = reader.ReadBytes(8);
             if (signature.Length != 8 || signature[1] != 'P' || signature[2] != 'N' || signature[3] != 'G')
                 throw new FormatException("not a PNG");
-            int width = 0, height = 0, colorType = 0;
+            width = 0;
+            height = 0;
+            int colorType = 0;
             var idat = new MemoryStream();
             while (true)
             {
@@ -37,7 +71,7 @@ namespace ArrowFixes
                 else if (type == "IDAT") idat.Write(data, 0, data.Length);
                 else if (type == "IEND") break;
             }
-            int channels = colorType == 6 ? 4 : colorType == 2 ? 3 : colorType == 4 ? 2 : colorType == 0 ? 1 :
+            channels = colorType == 6 ? 4 : colorType == 2 ? 3 : colorType == 4 ? 2 : colorType == 0 ? 1 :
                 throw new FormatException("unsupported PNG colour type " + colorType);
 
             idat.Position = 2; // skip the zlib header
@@ -71,16 +105,7 @@ namespace ArrowFixes
                 Buffer.BlockCopy(row, 0, pixels, y * stride, stride);
                 prev = row;
             }
-
-            var coverage = new float[width * height];
-            for (int i = 0; i < coverage.Length; i++)
-            {
-                int o = i * channels;
-                coverage[i] = channels == 4 ? pixels[o + 3] / 255f
-                    : channels == 2 ? pixels[o + 1] / 255f
-                    : 1f - (channels == 3 ? (pixels[o] + pixels[o + 1] + pixels[o + 2]) / 765f : pixels[o] / 255f);
-            }
-            return new PngMask { Width = width, Height = height, _coverage = coverage };
+            return pixels;
         }
 
         /// <summary>A mask from 8-bit alpha values, rows bottom first (Unity's texture order).</summary>

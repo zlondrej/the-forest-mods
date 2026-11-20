@@ -24,7 +24,7 @@
   </Target>
 
   <ItemGroup>
-    <!-- The meat size badges, rendered by scripts/meat-badges.py. -->
+    <!-- The chalk icons (meat size badges, twist arrow), rendered by scripts/chalk-icons.html. -->
     <EmbeddedResource Include="Icons\*.png" LogicalName="VrTweaks.Icons.%(Filename)%(Extension)" />
     <!-- PNG reading, shared with ArrowFixes. -->
     <Compile Include="..\ArrowFixes\PngMask.cs" Link="PngMask.cs" />

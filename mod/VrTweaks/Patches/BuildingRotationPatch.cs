@@ -13,9 +13,9 @@ namespace VrTweaks
     ///   left one left-handed) around its pointing direction turns the building, like turning a knob: <see cref="Ratio"/>
     ///   building degrees per degree of twist (2: a quarter turn of the hand turns it half around). Twisting right turns
     ///   it clockwise seen from above. Only while the rotate button is held (<see cref="OnlyWhileRotateHeld"/>, the
-    ///   stick's turning paused meanwhile; a TILT sign shows at the hand), or all the time on top of it.
+    ///   stick's turning paused meanwhile; a double-headed arc arrow shows around the hand), or all the time on top of it.
     /// - The building keeps facing you the same way when you turn around in your room or aim around you
-    ///   (<see cref="FacesYou"/>): vanilla VR kept its compass direction, as your body doesn't turn with you.
+    ///   (<see cref="FacesPlayer"/>): vanilla VR kept its compass direction, as your body doesn't turn with you.
     /// - The building stays as far as you aim when you turn in your room. Vanilla searched for it along a line in front
     ///   of the body, which doesn't turn with you: aiming 90° to the side, the building came up to your feet until
     ///   the body turned or moved.
@@ -24,7 +24,7 @@ namespace VrTweaks
     {
         public static float Ratio = 2f;
         public static bool OnlyWhileRotateHeld = true;
-        public static bool FacesYou = true;
+        public static bool FacesPlayer = true;
 
         private static AccessTools.FieldRef<KeepAboveTerrain, float> _turn;
         private static System.Func<bool> _rotateHeld;
@@ -57,7 +57,7 @@ namespace VrTweaks
             if (!hand) return;
             bool held = _rotateHeld();
             if (Ratio != 0f) Twist(__instance, hand, held);
-            if (FacesYou) KeepFacing(__instance);
+            if (FacesPlayer) KeepFacing(__instance);
             if (held && Ratio != 0f && OnlyWhileRotateHeld) ShowSign(hand);
         }
 
@@ -152,22 +152,22 @@ namespace VrTweaks
             return parent.position + Quaternion.AngleAxis(turn, Vector3.up) * offset;
         }
 
-        // The TILT sign: a small label at the aiming hand while the rotate button turns the building by hand.
+        // The twist sign: a chalk-drawn double-headed arc arrow around the aiming controller while the rotate button turns the
+        // building by hand (a picture, nothing to translate). Rendered by scripts/chalk-icons.html (Icons/TwistArrow.png,
+        // embedded), shown by a SpriteRenderer (its shader is always in the game).
+        private const float ArcRadius = 0.34f; // of the picture's size, around ArcCentre: as in the script
+        private static readonly Vector2 ArcCentre = new Vector2(0.5f, 0.42f); // the controller's axis, from the bottom left
+        private const float ArcRadiusMetres = 0.09f, ArcAhead = 0.10f; // around the controller, ahead along its pointer
         private static GameObject _sign;
-        private static TextMesh _text, _shadow;
+        private static bool _signMissing;
 
         private static void ShowSign(Transform hand)
         {
-            var eyes = LocalPlayer.MainCamTr;
-            if (!eyes) return;
             if (!_sign && !MakeSign()) return;
             _signFrame = Time.frameCount;
             _sign.layer = hand.gameObject.layer;
-            _text.gameObject.layer = _shadow.gameObject.layer = hand.gameObject.layer;
-            // Above the controller, facing the eyes.
-            var position = hand.position + Vector3.up * 0.06f;
-            _sign.transform.position = position;
-            _sign.transform.rotation = Quaternion.LookRotation(position - eyes.position, eyes.up);
+            // Around the controller's pointing axis, over its top, turning with it like a knob's marking.
+            _sign.transform.SetPositionAndRotation(hand.position + hand.forward * ArcAhead, Quaternion.LookRotation(hand.forward, hand.up));
             if (!_sign.activeSelf) _sign.SetActive(true);
         }
 
@@ -179,39 +179,41 @@ namespace VrTweaks
 
         private static bool MakeSign()
         {
-            var font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (!font)
+            if (_signMissing) return false;
+            const string name = "VrTweaks.Icons.TwistArrow.png";
+            byte[] rgba;
+            int w, h;
+            using (var stream = typeof(BuildingRotationPatch).Assembly.GetManifestResourceStream(name))
             {
-                Plugin.Log.LogWarning("BuildingRotation: no font for the TILT sign, it stays hidden");
-                return false;
+                if (stream == null)
+                {
+                    _signMissing = true;
+                    Plugin.Log.LogWarning($"BuildingRotation: {name} missing from the plugin, no twist sign");
+                    return false;
+                }
+                rgba = ArrowFixes.PngMask.ReadRgba(stream, out w, out h);
             }
-            _sign = new GameObject("VrTweaks_TiltSign");
+            var pixels = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                int o = ((h - 1 - y) * w + x) * 4; // the PNG's rows are top first, the texture's bottom first
+                pixels[y * w + x] = new Color32(rgba[o], rgba[o + 1], rgba[o + 2], rgba[o + 3]);
+            }
+            var texture = new Texture2D(w, h, TextureFormat.RGBA32, false)
+                { name = "VrTweaks_TwistSign", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            float pixelsPerMetre = w * ArcRadius / ArcRadiusMetres;
+            var sprite = Sprite.Create(texture, new Rect(0, 0, w, h), ArcCentre, pixelsPerMetre);
+            _sign = new GameObject("VrTweaks_TwistSign");
             Object.DontDestroyOnLoad(_sign);
-            _shadow = Label(font, new Color(0f, 0f, 0f, 0.8f), new Vector3(0.0012f, -0.0012f, 0.001f));
-            _text = Label(font, Color.white, Vector3.zero);
-            _sign.SetActive(false);
-            return true;
-        }
-
-        private static TextMesh Label(Font font, Color color, Vector3 offset)
-        {
-            var go = new GameObject("Label");
-            go.transform.SetParent(_sign.transform, false);
-            go.transform.localPosition = offset;
-            var text = go.AddComponent<TextMesh>();
-            text.font = font;
-            text.text = "TILT";
-            text.fontSize = 64;
-            text.characterSize = 0.0035f; // letters about 2 cm high
-            text.anchor = TextAnchor.MiddleCenter;
-            text.alignment = TextAlignment.Center;
-            text.fontStyle = FontStyle.Bold;
-            text.color = color;
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = font.material;
+            var renderer = _sign.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
-            return text;
+            _sign.SetActive(false);
+            return true;
         }
     }
 }

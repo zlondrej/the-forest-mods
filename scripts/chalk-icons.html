@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chalk icons</title>
+<style>
+  :root { color-scheme: dark; --bg: #1d1f21; --panel: #26292c; --text: #e6e6e6; --muted: #9aa0a6; --accent: #8ab4f8; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  /* Two columns that scroll on their own: scrolling the parameters leaves the preview where it is. */
+  main { display: grid; grid-template-columns: 340px 1fr; gap: 16px; padding: 16px; height: 100%; box-sizing: border-box; }
+  .scroll { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+  @media (max-width: 800px) { html, body { overflow: auto; } main { grid-template-columns: 1fr; height: auto; } .scroll { overflow: visible; } }
+  .panel { background: var(--panel); border-radius: 8px; padding: 12px 14px; }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .tabs button { background: #3a3e42; color: var(--text); }
+  .tabs button.on { background: var(--accent); color: #111; }
+  label.param { display: grid; grid-template-columns: 1fr 80px; gap: 4px 8px; align-items: center; margin: 10px 0 2px; }
+  label.param span.hint { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+  label.param input[type=range] { grid-column: 1 / -1; width: 100%; }
+  select { background: #111; color: var(--text); border: 1px solid #444; border-radius: 4px; padding: 2px 4px; }
+  input[type=number] { width: 80px; background: #111; color: var(--text); border: 1px solid #444; border-radius: 4px; padding: 2px 4px; }
+  .previews { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+  figure { margin: 0; }
+  figcaption { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  canvas { border-radius: 6px; display: block; }
+  pre { background: #111; padding: 10px; border-radius: 6px; white-space: pre-wrap; user-select: all; }
+  code { background: #111; padding: 1px 4px; border-radius: 3px; }
+  button { background: var(--accent); color: #111; border: 0; border-radius: 4px; padding: 6px 10px; cursor: pointer; }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .muted { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="panel scroll">
+    <div class="tabs"><button data-shape="arrow">Twist arrow</button><button data-shape="badge">Meat badges</button></div>
+    <div id="shapeNote" class="muted"></div>
+    <div id="controls"></div>
+  </section>
+  <section class="scroll">
+    <div class="row" style="margin-top:0">
+      <label><input type="checkbox" id="pixelated"> show pixels</label>
+      <label>zoom <select id="zoom">
+        <option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1× (actual pixels)</option>
+        <option value="2">2×</option><option value="3">3×</option><option value="4">4×</option><option value="6">6×</option><option value="8">8×</option>
+      </select></label>
+      <label id="meatPick">meat icon (the game's Meat.png, optional) <input type="file" id="meat" accept="image/png"></label>
+    </div>
+    <div class="previews" id="previews" style="margin-top:10px"></div>
+    <h1 style="margin-top:16px">Save</h1>
+    <div class="muted">Into <code>mod/VrTweaks/Icons/</code>, replacing the file there (the plugin embeds every PNG in it). The browser downloads it (to Downloads, or where it asks, if it's set to ask).</div>
+    <div class="row" id="saves"></div>
+    <h1 style="margin-top:16px">Parameters</h1>
+    <div class="muted">Kept in this browser between visits. To make them this file's own, copy them into the defaults in SHAPES below.</div>
+    <pre id="params"></pre>
+    <div class="row"><button id="copy">Copy</button><button id="reset">Reset this tab</button></div>
+  </section>
+</main>
+<script>
+// Renders VrTweaks' chalk icons, the PNGs the plugin ships in mod/VrTweaks/Icons: the twist arrow (TwistArrow.png,
+// shown around the aiming controller while the rotate button turns a building by hand) and the meat size badges
+// (BadgeL/BadgeS.png, put on the game's meat icon). Chalk like the game's HUD icons: white, grainy, ragged edges.
+// Open this file in a browser, tune, save the PNGs. Rows are in texture order (row 0 = bottom) while computing.
+const CHALK = [
+  { key: "noiseScale", label: "Noise scale (px)", min: 0.25, max: 12, step: 0.05, hint: "Size of one random noise cell, in texture pixels (smoothly interpolated): bigger = lower-frequency grain without washing out its contrast." },
+  { key: "fine", label: "Grain size (px)", min: 0.3, max: 4, step: 0.005, hint: "Blur of the grain noise, in texture pixels: bigger = larger, softer grain." },
+  { key: "contrast", label: "Grain strength", min: 0, max: 0.8, step: 0.01, hint: "How much the grain varies the chalk's opacity." },
+  { key: "base", label: "Grain base opacity", min: 0, max: 3, step: 0.01, hint: "Chalk opacity before the grain; above 1 the grain only shows where it dips below fully opaque, so higher = less of the surface grainy." },
+  { key: "floor", label: "Grain floor", min: 0, max: 1, step: 0.01, hint: "The least opaque the chalk can be." },
+  { key: "coarse", label: "Edge roughness size (px)", min: 0.5, max: 8, step: 0.1, hint: "Blur of the noise that roughens the edges." },
+  { key: "rough", label: "Edge roughness", min: 0, max: 1.5, step: 0.05, hint: "How ragged the edges are (0 = clean)." },
+  { key: "shadowBlur", label: "Shadow softness (px)", min: 0.5, max: 8, step: 0.05, hint: "Blur of the dark halo behind the chalk." },
+  { key: "shadow", label: "Shadow strength", min: 0, max: 1, step: 0.05, hint: "Darkness of the halo (0 = none)." },
+];
+const SEED = (key, label) => ({ key, label, min: 1, max: 9999999, step: 1, hint: "Another random pattern (type any number)." });
+const SHAPES = {
+  arrow: {
+    note: "Saved as TwistArrow.png at this resolution; shown about 18 cm wide around the aiming controller.",
+    params: [{ key: "pixels", label: "Resolution (px)", min: 64, max: 384, step: 16, hint: "Texture size. The arrow's size in VR stays the same." }, ...CHALK, SEED("seed", "Noise seed")],
+    defaults: { pixels: 224, noiseScale: 3.75, fine: 2.15, contrast: 0.41, base: 1.06, floor: 0.12, coarse: 0.5, rough: 0.95, shadowBlur: 3.75, shadow: 0.5, seed: 12 },
+  },
+  badge: {
+    note: "Saved as BadgeL/BadgeS.png at this size; the game scales them to 24 % of its 152 px meat icon (36 px).",
+    params: [
+      { key: "pixels", label: "Badge size (px)", min: 24, max: 96, step: 1, hint: "The PNG's size (the game scales it to 36 px on the 152 px icon)." },
+      { key: "radius", label: "Corner radius", min: 0, max: 0.5, step: 0.01, hint: "Of the badge's size." },
+      { key: "letter", label: "Letter size", min: 0.4, max: 1, step: 0.01, hint: "Of the badge's size (Arial Bold)." },
+      { key: "letterY", label: "Letter offset down", min: -0.1, max: 0.1, step: 0.005, hint: "Of the badge's size." },
+      ...CHALK,
+      SEED("seedL", "Noise seed, L"),
+      SEED("seedS", "Noise seed, S"),
+    ],
+    defaults: { pixels: 48, radius: 0.24, letter: 0.85, letterY: 0.06, noiseScale: 0.5, fine: 1.36, contrast: 0.36, base: 1.19, floor: 0.09, coarse: 1, rough: 0, shadowBlur: 2, shadow: 0, seedL: 698, seedS: 1576756 },
+  },
+};
+const BACKGROUNDS = ["#5a7846", "#786955", "#c8d2dc", "#2a2d22"];
+// The meat icon's layout in the game (MeatIcons): steak and badge centres from the bottom left, sizes of the icon.
+const ICON = 152, MEAT = { size: 1.047, cx: 0.489, cy: 0.380 }, BADGE_AT = { size: 0.24, cx: 0.805, cy: 0.782 };
+
+const state = { shape: "arrow", arrow: { ...SHAPES.arrow.defaults }, badge: { ...SHAPES.badge.defaults } };
+// The values you tuned, kept in this browser (falls back to the defaults if storage is unavailable).
+try {
+  const kept = JSON.parse(localStorage.getItem("vrtweaks-chalk-icons") || "null");
+  if (kept) for (const shape of ["arrow", "badge"]) Object.assign(state[shape], kept[shape] || {});
+} catch (e) { }
+function keep() { try { localStorage.setItem("vrtweaks-chalk-icons", JSON.stringify({ arrow: state.arrow, badge: state.badge })); } catch (e) { } }
+let meatImage = null;
+
+function buildControls() {
+  const shape = SHAPES[state.shape], values = state[state.shape];
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.shape === state.shape));
+  document.getElementById("shapeNote").textContent = shape.note;
+  document.getElementById("meatPick").style.display = state.shape === "badge" ? "" : "none";
+  const controls = document.getElementById("controls");
+  controls.innerHTML = "";
+  for (const p of shape.params) {
+    const l = document.createElement("label");
+    l.className = "param";
+    l.innerHTML = `<span>${p.label}</span><input type="number" min="${p.min}" max="${p.max}" step="${p.step}" value="${values[p.key]}">` +
+      `<input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${values[p.key]}"><span class="hint">${p.hint}</span>`;
+    const [num, range] = l.querySelectorAll("input");
+    const set = v => { values[p.key] = +v; num.value = v; range.value = v; schedule(); };
+    num.addEventListener("input", () => set(num.value));
+    range.addEventListener("input", () => set(range.value));
+    controls.appendChild(l);
+  }
+  schedule();
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { state.shape = b.dataset.shape; buildControls(); });
+document.getElementById("reset").onclick = () => { state[state.shape] = { ...SHAPES[state.shape].defaults }; buildControls(); };
+document.getElementById("copy").onclick = () => navigator.clipboard.writeText(document.getElementById("params").textContent);
+document.getElementById("pixelated").onchange = schedule;
+document.getElementById("zoom").onchange = schedule;
+document.getElementById("meat").onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => { meatImage = img; schedule(); };
+  img.src = URL.createObjectURL(file);
+};
+
+// --- noise, blur ---------------------------------------------------------------------------------------------
+function mulberry32(a) {
+  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+// Random values on a grid of noise cells (`scale` pixels each), bilinearly interpolated per pixel.
+function scaledNoise(n, scale, seed) {
+  const rnd = mulberry32(seed), cells = Math.ceil(n / scale) + 2, grid = new Float32Array(cells * cells);
+  for (let i = 0; i < grid.length; i++) grid[i] = rnd();
+  const out = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const fx = x / scale, fy = y / scale, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
+    const g = (cx, cy) => grid[cy * cells + cx];
+    const top = g(x0, y0) * (1 - tx) + g(x0 + 1, y0) * tx, bottom = g(x0, y0 + 1) * (1 - tx) + g(x0 + 1, y0 + 1) * tx;
+    out[y * n + x] = top * (1 - ty) + bottom * ty;
+  }
+  return out;
+}
+function blur(src, n, sigma) {
+  const r = Math.ceil(sigma * 3), k = [];
+  let sum = 0;
+  for (let i = -r; i <= r; i++) { const v = Math.exp(-i * i / (2 * sigma * sigma)); k.push(v); sum += v; }
+  for (let i = 0; i < k.length; i++) k[i] /= sum;
+  const tmp = new Float32Array(n * n), out = new Float32Array(n * n), cl = v => v < 0 ? 0 : v >= n ? n - 1 : v;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { let v = 0; for (let i = -r; i <= r; i++) v += src[y * n + cl(x + i)] * k[i + r]; tmp[y * n + x] = v; }
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { let v = 0; for (let i = -r; i <= r; i++) v += tmp[cl(y + i) * n + x] * k[i + r]; out[y * n + x] = v; }
+  return out;
+}
+function normalised(v) {
+  let m = 0; for (const x of v) m += x; m /= v.length;
+  let s = 0; for (const x of v) s += (x - m) * (x - m); s = Math.sqrt(s / v.length);
+  return v.map(x => s > 0 ? (x - m) / s : 0);
+}
+
+// --- shapes: coverage 0..1 per pixel, row 0 = bottom ---------------------------------------------------------
+// The arrow: a 120° arc around C (the controller's axis: BuildingRotationPatch puts the sprite's pivot there, and
+// uses R for its size) with an arrowhead at each end. In texture units, 0..1 from the bottom left.
+const ARC = { R: 0.34, W: 0.07, A0: 30, A1: 150, HL: 0.17, HW: 0.21, C: [0.5, 0.42] };
+function inTri(px, py, a, b, c) {
+  const s = (x1, y1, x2, y2, x3, y3) => (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3);
+  const d1 = s(px, py, a[0], a[1], b[0], b[1]), d2 = s(px, py, b[0], b[1], c[0], c[1]), d3 = s(px, py, c[0], c[1], a[0], a[1]);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+}
+function arrowCoverage(n) {
+  const { R, W, A0, A1, HL, HW, C } = ARC, hs = [];
+  for (const [ang, sign] of [[A0, -1], [A1, 1]]) {
+    const t = ang * Math.PI / 180, e = [C[0] + R * Math.cos(t), C[1] + R * Math.sin(t)];
+    const on = [-Math.sin(t) * sign, Math.cos(t) * sign], ac = [Math.cos(t), Math.sin(t)];
+    hs.push([[e[0] + on[0] * HL, e[1] + on[1] * HL], [e[0] + ac[0] * HW / 2, e[1] + ac[1] * HW / 2], [e[0] - ac[0] * HW / 2, e[1] - ac[1] * HW / 2]]);
+  }
+  const inside = (x, y) => {
+    const dx = x - C[0], dy = y - C[1], a = Math.atan2(dy, dx) * 180 / Math.PI;
+    return (Math.abs(Math.hypot(dx, dy) - R) < W / 2 && a >= A0 && a <= A1) || hs.some(h => inTri(x, y, ...h));
+  };
+  const ss = 4, cov = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    let c = 0;
+    for (let sy = 0; sy < ss; sy++) for (let sx = 0; sx < ss; sx++) if (inside((x + (sx + .5) / ss) / n, (y + (sy + .5) / ss) / n)) c++;
+    cov[y * n + x] = c / (ss * ss);
+  }
+  return cov;
+}
+// A badge: a rounded square with the letter cut out, drawn 8x larger and averaged down.
+function badgeCoverage(n, letter, P) {
+  const ss = 8, big = n * ss, c = document.createElement("canvas");
+  c.width = c.height = big;
+  const g = c.getContext("2d"), r = big * P.radius;
+  g.fillStyle = "#fff";
+  g.beginPath();
+  g.moveTo(r, 0); g.arcTo(big, 0, big, big, r); g.arcTo(big, big, 0, big, r); g.arcTo(0, big, 0, 0, r); g.arcTo(0, 0, big, 0, r);
+  g.closePath(); g.fill();
+  g.globalCompositeOperation = "destination-out";
+  g.font = `bold ${big * P.letter}px Arial`;
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText(letter, big / 2, big / 2 + big * P.letterY);
+  const data = g.getImageData(0, 0, big, big).data, cov = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    let s = 0;
+    for (let sy = 0; sy < ss; sy++) for (let sx = 0; sx < ss; sx++) s += data[((y * ss + sy) * big + x * ss + sx) * 4 + 3];
+    cov[(n - 1 - y) * n + x] = s / (255 * ss * ss);
+  }
+  return cov;
+}
+
+// --- chalk: the icon as a canvas of n×n pixels ---------------------------------------------------------------
+function chalk(cov, n, P, seed) {
+  const noise = scaledNoise(n, P.noiseScale, seed);
+  const fine = normalised(blur(noise, n, P.fine)), coarse = normalised(blur(noise, n, P.coarse));
+  const shadow = P.shadow > 0 ? blur(cov, n, P.shadowBlur) : null;
+  const img = new ImageData(n, n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const i = y * n + x, c = cov[i];
+    const edge = c > 0 && c < 1 ? Math.min(1, Math.max(0, (c - 0.5) * 2 + coarse[i] * P.rough)) : c;
+    const ch = edge * Math.min(1, Math.max(P.floor, P.base + P.contrast * fine[i]));
+    const dark = shadow ? shadow[i] * P.shadow * (1 - ch) : 0, alpha = ch + dark;
+    const o = ((n - 1 - y) * n + x) * 4, grey = alpha > 0 ? 251 * ch / alpha : 0;
+    img.data[o] = img.data[o + 1] = img.data[o + 2] = grey;
+    img.data[o + 3] = Math.min(1, alpha) * 255;
+  }
+  const c = document.createElement("canvas"); c.width = c.height = n; c.getContext("2d").putImageData(img, 0, 0);
+  return c;
+}
+
+// --- preview -------------------------------------------------------------------------------------------------
+let pending = 0;
+function schedule() { cancelAnimationFrame(pending); pending = requestAnimationFrame(render); }
+function tile(draw, size, bg, caption) {
+  const fig = document.createElement("figure"), c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  g.fillStyle = bg; g.fillRect(0, 0, size, size);
+  g.imageSmoothingEnabled = !document.getElementById("pixelated").checked;
+  draw(g);
+  fig.appendChild(c);
+  if (caption) { const f = document.createElement("figcaption"); f.textContent = caption; fig.appendChild(f); }
+  return fig;
+}
+function render() {
+  // Zoom 1 = one screen pixel per texture pixel (whatever the resolution).
+  const zoom = +document.getElementById("zoom").value || 1, previews = document.getElementById("previews");
+  const P = state[state.shape], n = P.pixels | 0;
+  previews.innerHTML = "";
+  if (state.shape === "arrow") {
+    const sign = chalk(arrowCoverage(n), n, P, P.seed), size = Math.max(1, Math.round(n * zoom));
+    saveButtons({ "TwistArrow.png": sign });
+    for (const bg of BACKGROUNDS) previews.appendChild(tile(g => g.drawImage(sign, 0, 0, size, size), size, bg));
+  } else {
+    const badges = { L: chalk(badgeCoverage(n, "L", P), n, P, P.seedL), S: chalk(badgeCoverage(n, "S", P), n, P, P.seedS) };
+    saveButtons({ "BadgeL.png": badges.L, "BadgeS.png": badges.S });
+    const size = Math.max(1, Math.round(n * zoom));
+    for (const letter of "LS") for (const bg of [BACKGROUNDS[3], BACKGROUNDS[0]])
+      previews.appendChild(tile(g => g.drawImage(badges[letter], 0, 0, size, size), size, bg, `Badge${letter}.png`));
+    if (meatImage) {
+      // As in the game: the steak and the badge on a 152 px icon, then shown enlarged and at HUD size.
+      const icon = letter => {
+        const c = document.createElement("canvas"); c.width = c.height = ICON;
+        const g = c.getContext("2d"), s = Math.round(ICON * MEAT.size), b = Math.round(ICON * BADGE_AT.size);
+        g.drawImage(meatImage, Math.round(ICON * MEAT.cx - s / 2), Math.round(ICON * (1 - MEAT.cy) - s / 2), s, s);
+        g.drawImage(badges[letter], Math.round(ICON * BADGE_AT.cx - b / 2), Math.round(ICON * (1 - BADGE_AT.cy) - b / 2), b, b);
+        return c;
+      };
+      for (const letter of "LS") {
+        const ic = icon(letter), big = Math.max(1, Math.round(ICON * zoom));
+        previews.appendChild(tile(g => g.drawImage(ic, 0, 0, big, big), big, "#282828", `${letter === "L" ? "meat" : "small meat"} icon`));
+        previews.appendChild(tile(g => g.drawImage(ic, 0, 0, 56, 56), 56, "#282828", "HUD size"));
+      }
+    }
+  }
+  const lines = [`[${state.shape === "arrow" ? "twist arrow" : "meat badges"}]`, ...SHAPES[state.shape].params.map(p => `${p.key} = ${P[p.key]}`)];
+  document.getElementById("params").textContent = lines.join("\n");
+  keep();
+}
+
+// Save buttons for the rendered PNGs, as plain downloads (a page opened from a file may not write files through the
+// browser's save dialog).
+function saveButtons(files) {
+  const row = document.getElementById("saves");
+  row.innerHTML = "";
+  for (const [name, canvas] of Object.entries(files)) {
+    const b = document.createElement("button");
+    b.textContent = `Save ${name}`;
+    b.onclick = () => canvas.toBlob(blob => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }, "image/png");
+    row.appendChild(b);
+  }
+}
+buildControls();
+</script>
+</body>
+</html>

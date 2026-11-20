@@ -11,14 +11,14 @@ namespace VrTweaks
     /// The HUD's item widgets (fire, drying rack, stew pot, door weights) show meat and small meat with the very same
     /// picture (only the text label differs). Here both get a size badge: the meat a little smaller, bottom left, and
     /// a rounded square with "L" (meat) or "S" (small meat) cut out, top right. The badges ship with the mod
-    /// (Icons/Badge*.png, rendered by scripts/meat-badges.py); the meat is the game's own icon, combined when the HUD
+    /// (Icons/Badge*.png, rendered by scripts/chalk-icons.html); the meat is the game's own icon, combined when the HUD
     /// loads.
     /// </summary>
     internal static class MeatIcons
     {
         // Where things go in the icon: centre (0..1, from the bottom left) and size, of the icon's size.
         private static readonly Vector2 MeatCentre = new Vector2(0.489f, 0.380f), BadgeCentre = new Vector2(0.805f, 0.782f);
-        private const float MeatSize = 1.047f, BadgeSize = 0.24f; // BadgeSize: as in scripts/meat-badges.py
+        private const float MeatSize = 1.047f, BadgeSize = 0.24f; // BadgeSize: as in scripts/chalk-icons.html
         private static readonly Color32 Chalk = new Color32(251, 251, 251, 255); // the game's icon white
 
         private static HudGui _done;
@@ -89,7 +89,7 @@ namespace VrTweaks
             return badge;
         }
 
-        /// <summary>The badge in its corner (pixel for pixel when its size matches, as for the game's 152 px icons).</summary>
+        /// <summary>The badge in its corner, scaled to BadgeSize of the icon.</summary>
         private static void DrawBadge(Color32[] dst, int w, int h, PngMask badge)
         {
             int size = Mathf.RoundToInt(w * BadgeSize);
@@ -99,8 +99,13 @@ namespace VrTweaks
             {
                 int px = left + x, py = bottom + y;
                 if (px < 0 || px >= w || py < 0 || py >= h) continue;
-                // The mask's rows are top first; the texture's bottom first.
-                float a = badge.Sample(size > 1 ? x / (size - 1f) : 0f, size > 1 ? 1f - y / (size - 1f) : 0f);
+                // The PNG is larger than the badge in the icon: 4×4 samples per icon pixel, averaged (a smooth
+                // downscale). The mask's rows are top first; the texture's bottom first.
+                float a = 0f;
+                for (int sy = 0; sy < 4; sy++)
+                for (int sx = 0; sx < 4; sx++)
+                    a += badge.Sample((x + (sx + 0.5f) / 4f) / size, 1f - (y + (sy + 0.5f) / 4f) / size);
+                a /= 16f;
                 if (a <= 0f) continue;
                 Blend(dst, py * w + px, new Color(Chalk.r / 255f, Chalk.g / 255f, Chalk.b / 255f, a));
             }

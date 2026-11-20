@@ -33,6 +33,7 @@ namespace VrTweaks
             Apply(harmony, "SprintThreshold", typeof(SprintThresholdPatch));
             ApplyVrOnly("VrKeyboard", () => VrKeyboardPatch.Apply(harmony));
             ApplyVrOnly("Handedness", () => HandednessPatch.Apply(harmony));
+            ApplyVrOnly("SpineFollowsNeck", () => SpinePatch.Apply(harmony));
             ApplyVrOnly("BuildingRotation", () => BuildingRotationPatch.Apply(harmony));
 
             Log.LogInfo(_airHud ? "UnderwaterAirBar: applied" : "UnderwaterAirBar: disabled in config");
@@ -57,6 +58,8 @@ namespace VrTweaks
         private bool _airHud;
 
         // The settings, bound once; ApplySettings copies them to where they're used (at start and when the file changes).
+        private ConfigEntry<PlayerBody.ArmorShown> _bodyArmor;
+        private ConfigEntry<bool> _bodyBackpack;
         private ConfigEntry<bool> _bodyVisible, _airHudEnabled, _airHudBlurred, _onlyWhileRotateHeld, _followView;
         private ConfigEntry<float> _bodyBack, _sprintThreshold, _twistRatio;
         private ConfigEntry<float> _airDistance, _airHeight, _airSize;
@@ -67,8 +70,12 @@ namespace VrTweaks
         {
             _bodyVisible = Config.Bind("PlayerBody", "Visible", PlayerBody.Visible,
                 "Draw your body in VR (torso and legs, clothes and armour; not the head, nor the bare arms: the VR hands are drawn instead). Vanilla VR only draws its shadow.");
+            _bodyArmor = Config.Bind("PlayerBody", "Armor", PlayerBody.Armor,
+                "Which armour is drawn on your body: None, Limbs (arms and legs only: chest and shoulder pieces block the view looking down) or All. Armour not drawn still casts its shadow.");
+            _bodyBackpack = Config.Bind("PlayerBody", "Backpack", PlayerBody.Backpack,
+                "Draw the backpack on your body (it blocks the view looking down). Not drawn, it still casts its shadow.");
             _bodyBack = Config.Bind("PlayerBody", "BackOffset", PlayerBody.BackOffset,
-                "Metres your body sits further back behind your eyes than in vanilla, so the chest isn't in front of them when you look down (negative = forward, 0 = vanilla).");
+                "Fine-tuning: metres your body sits further back behind your eyes than worked out (it stands upright with its head under yours; negative = forward).");
 
             _sprintThreshold = Config.Bind("Movement", "SprintThreshold", SprintThresholdPatch.Vanilla,
                 "VR auto-run: you sprint while the movement stick is pushed past this part of its range (0.85 = vanilla). Lower: sprint without pushing all the way (sticks that don't reach the edge, especially diagonally). Higher: walk with the stick further out.");
@@ -76,8 +83,8 @@ namespace VrTweaks
             _twistRatio = Config.Bind("BuildingRotation", "HandTwistRatio", BuildingRotationPatch.Ratio,
                 "Placing a building in VR: twisting the hand that aims (around where it points, like turning a knob) turns the building by this many degrees per degree of twist (2: a quarter turn of the hand turns it half around). Negative = the other way, 0 = off.");
             _onlyWhileRotateHeld = Config.Bind("BuildingRotation", "OnlyWhileRotateHeld", BuildingRotationPatch.OnlyWhileRotateHeld,
-                "true = the hand turns the building only while you hold the rotate button (a TILT sign shows at the hand); false = always, on top of the rotate input.");
-            _followView = Config.Bind("BuildingRotation", "FacesYou", BuildingRotationPatch.FacesYou,
+                "true = the hand turns the building only while you hold the rotate button (a double-headed arc arrow shows around the hand); false = always, on top of the rotate input.");
+            _followView = Config.Bind("BuildingRotation", "FacesPlayer", BuildingRotationPatch.FacesPlayer,
                 "true = the building keeps facing you the same way as you turn (or aim around you), as it does in flat-screen when you turn the view; false = it keeps its compass direction (vanilla VR).");
 
             _airHudEnabled = Config.Bind("UnderwaterAirBar", "Enabled", true,
@@ -130,11 +137,13 @@ namespace VrTweaks
         private void ApplySettings()
         {
             PlayerBody.Visible = _bodyVisible.Value;
+            PlayerBody.Armor = _bodyArmor.Value;
+            PlayerBody.Backpack = _bodyBackpack.Value;
             PlayerBody.BackOffset = _bodyBack.Value;
             SprintThresholdPatch.Threshold = Mathf.Clamp(_sprintThreshold.Value, 0.1f, 1f);
             BuildingRotationPatch.Ratio = _twistRatio.Value;
             BuildingRotationPatch.OnlyWhileRotateHeld = _onlyWhileRotateHeld.Value;
-            BuildingRotationPatch.FacesYou = _followView.Value;
+            BuildingRotationPatch.FacesPlayer = _followView.Value;
             if (_configTime == default(DateTime)) _airHud = _airHudEnabled.Value; // at start only
             AirHud.Distance = _airDistance.Value;
             AirHud.Height = _airHeight.Value;

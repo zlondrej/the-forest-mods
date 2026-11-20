@@ -38,3 +38,13 @@ VRPlayerControl::RightHand
 ?VRPlayerControl::_rightArmIkSolve
 ?PlayerPreferences::VRUseRightHandedBow
 PlayerPreferences::VRUseRightHandedWeapon
+?TheForest.Items.Inventory.PlayerInventory::ShowingVrQuickSelect
+?VRPlayerControl::updateSpineRotation
+?VRPlayerControl::smoothPosition
+?VRPlayerControl::velRef
+?VRPlayerControl::smoothTargetAngle
+?VRPlayerControl::LeftForearmTransform
+?VRPlayerControl::RightForearmTransform
+?VRPlayerControl::watchParentLocalRot
+?VRPlayerControl::watchParentLocalScale
+InverseKinematics::Solve
