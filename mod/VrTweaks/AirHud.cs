@@ -49,6 +49,7 @@ namespace VrTweaks
             {
                 bool show = PlayerPreferences.ShowHud;
                 if (_root.activeSelf != show) _root.SetActive(show);
+                Place(_root.transform); // the settings may have been changed in the config file
                 // The VR build switches flat-screen HUD parts off (VR switchers); keep the bar's holder on, the game
                 // still shows/hides the bar itself.
                 if (!bar.gameObject.activeSelf) bar.gameObject.SetActive(true);
@@ -82,9 +83,7 @@ namespace VrTweaks
             _root = new GameObject("VrTweaks_AirHud") { layer = layer };
             var t = _root.transform;
             t.SetParent(LocalPlayer.MainCamTr, false);
-            t.localPosition = new Vector3(0f, Height, Distance);
-            t.localRotation = Quaternion.identity;
-            t.localScale = Vector3.one * Size;
+            Place(t);
             var panel = _root.AddComponent<UIPanel>();
             panel.depth = 1000;
 
@@ -93,6 +92,13 @@ namespace VrTweaks
             bar.localRotation = Quaternion.identity;
             foreach (var child in bar.GetComponentsInChildren<Transform>(true)) child.gameObject.layer = layer;
             foreach (var widget in bar.GetComponentsInChildren<UIWidget>(true)) widget.ParentHasChanged();
+        }
+
+        private static void Place(Transform t)
+        {
+            t.localPosition = new Vector3(0f, Height, Distance);
+            t.localRotation = Quaternion.identity;
+            t.localScale = Vector3.one * Size;
         }
 
         /// <summary>

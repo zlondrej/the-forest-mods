@@ -26,3 +26,15 @@ KeepAboveTerrain::turn
 ?CoopSteamNGUI::_vrKeyboardActive
 ?CoopSteamNGUI::OnKeyboardClosed
 ?CoopSteamNGUI::OnVRKeyboard
+KeepAboveTerrain::Update
+KeepAboveTerrain::startLocalPosition
+VRPlayerControl::UpdateWeaponHandedness
+?VRPlayerControl::IkSolve
+VRPlayerControl::LeftHand
+VRPlayerControl::RightHand
+?VRPlayerControl::IsHoldingBowTypeWeapon
+?VRPlayerControl::ApplyMirroredHands
+?VRPlayerControl::_leftArmIkSolve
+?VRPlayerControl::_rightArmIkSolve
+?PlayerPreferences::VRUseRightHandedBow
+PlayerPreferences::VRUseRightHandedWeapon

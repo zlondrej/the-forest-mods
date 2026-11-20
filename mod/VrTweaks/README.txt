@@ -31,21 +31,30 @@ WHAT IT DOES
     threw when you pressed it while your hand was moving, e.g. backwards while winding up.
   - Ropes: sprint + stick down starts the fast slide, as in flat-screen (vanilla VR almost never started it).
   - Your body is drawn (torso and legs, with clothes and armour; not the head, nor the bare arms: the VR hands are
-    drawn there). Vanilla VR only draws its shadow.
-  - Typing in VR (multiplayer server filter, passwords, server name): every letter typed on the SteamVR keyboard
-    stays in the field (vanilla kept only the last one), and the keyboard opens again after Done.
+    drawn there), a little further back behind your eyes than vanilla puts it. Vanilla VR only draws its shadow.
+  - Handedness: the bow (crossbow, slingshot) follows only the "right handed bow" option; vanilla also put it in the
+    left hand with left-handed weapons. With the hands mirrored (bow in the left hand, or left-handed weapons), the
+    body's arms reach for the controller on their own side instead of crossing over.
+  - Typing in VR (multiplayer server filter, passwords, server name): the field shows what you type on the SteamVR
+    keyboard as you type (vanilla kept only the last letter), and the keyboard opens again after Done.
   - Building placement: while you hold the rotate button, twisting the aiming hand like a knob turns the building
-    (a quarter turn of the hand turns it half around).
+    (a quarter turn of the hand turns it half around; a TILT sign shows at the hand). The building keeps facing you
+    as you turn around in your room, and stays as far as you aim (vanilla brought it up to your feet when you turned
+    without your body turning along).
+  - Small meat has its own icon in the fire, drying rack and other item prompts: the meat with a rabbit above it
+    (vanilla showed the very same picture as meat).
 
 SETTINGS
-  In BepInEx\config\forestmods.vrtweaks.cfg (created on first start; read when the game starts):
+  In BepInEx\config\forestmods.vrtweaks.cfg (created on first start). Changes apply as soon as you save the file,
+  while the game runs (except where the file says otherwise):
   - [ImmersiveCamera]: each scene can go back to theatre mode (false), and the smoothing of the first-person view
     can be tuned.
   - [UnderwaterAirBar]: on/off, distance, height, size and blur of the air bar.
   - [Movement] SprintThreshold: how far to push the stick to sprint with auto-run (0.85 = vanilla).
-  - [PlayerBody] Visible: draw your body (true) or only its shadow, as in vanilla (false).
-  - [BuildingRotation]: how much the hand twist turns a building (0 = off), and whether only while the rotate button
-    is held.
+  - [PlayerBody] Visible: draw your body (true) or only its shadow, as in vanilla (false); BackOffset: how far
+    further back behind your eyes it sits (metres).
+  - [BuildingRotation]: how much the hand twist turns a building (0 = off), whether only while the rotate button
+    is held, and whether the building keeps facing you as you turn.
   The other fixes are always on.
 
 CREDITS
