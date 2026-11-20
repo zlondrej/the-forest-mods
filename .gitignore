@@ -4,3 +4,5 @@ __pycache__/
 bin/
 obj/
 dist/
+# The game's decompiled code (scripts/decompile.sh): Endnight's, kept local.
+decompiled/
