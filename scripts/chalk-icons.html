@@ -51,7 +51,7 @@
     </div>
     <div class="previews" id="previews" style="margin-top:10px"></div>
     <h1 style="margin-top:16px">Save</h1>
-    <div class="muted">Into <code>mod/VrTweaks/Icons/</code>, replacing the file there (the plugin embeds every PNG in it). The browser downloads it (to Downloads, or where it asks, if it's set to ask).</div>
+    <div class="muted">Into <code>mod/VrTweaks/Icons/</code> (the arrow) or <code>mod/MeatBadges/Icons/</code> (the badges), replacing the file there (the plugin embeds every PNG in it). The browser downloads it (to Downloads, or where it asks, if it's set to ask).</div>
     <div class="row" id="saves"></div>
     <h1 style="margin-top:16px">Parameters</h1>
     <div class="muted">Kept in this browser between visits. To make them this file's own, copy them into the defaults in SHAPES below.</div>
@@ -60,9 +60,9 @@
   </section>
 </main>
 <script>
-// Renders VrTweaks' chalk icons, the PNGs the plugin ships in mod/VrTweaks/Icons: the twist arrow (TwistArrow.png,
-// shown around the aiming controller while the rotate button turns a building by hand) and the meat size badges
-// (BadgeL/BadgeS.png, put on the game's meat icon). Chalk like the game's HUD icons: white, grainy, ragged edges.
+// Renders the mods' chalk icons: VrTweaks' twist arrow (mod/VrTweaks/Icons/TwistArrow.png, shown around the aiming
+// controller while the rotate button turns a building by hand) and MeatBadges' size badges
+// (mod/MeatBadges/Icons/BadgeL/BadgeS.png, put on the game's meat icon). Chalk like the game's HUD icons: white, grainy, ragged edges.
 // Open this file in a browser, tune, save the PNGs. Rows are in texture order (row 0 = bottom) while computing.
 const CHALK = [
   { key: "noiseScale", label: "Noise scale (px)", min: 0.25, max: 12, step: 0.05, hint: "Size of one random noise cell, in texture pixels (smoothly interpolated): bigger = lower-frequency grain without washing out its contrast." },

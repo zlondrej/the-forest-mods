@@ -5,7 +5,7 @@ using TheForest.UI;
 using TheForest.Utils;
 using UnityEngine;
 
-namespace VrTweaks
+namespace MeatBadges
 {
     /// <summary>
     /// The HUD's item widgets (fire, drying rack, stew pot, door weights) show meat and small meat with the very same
@@ -28,7 +28,6 @@ namespace VrTweaks
         /// <summary>A few times per second: once per HUD (it is recreated on load), the meat icons.</summary>
         public static void Tick()
         {
-            if (!ForestVR.Enabled) return;
             var hud = Scene.HudGui;
             if (!hud || hud == _done || ItemDatabase.Items == null) return;
             _done = hud;
@@ -70,7 +69,7 @@ namespace VrTweaks
             var pixels = new Color32[w * h];
             Draw(pixels, w, h, Read(meat, w, h), w, h, MeatCentre, MeatSize);
             DrawBadge(pixels, w, h, badge);
-            var icon = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "VrTweaks_Meat" + letter, wrapMode = TextureWrapMode.Clamp };
+            var icon = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "MeatBadges_" + letter, wrapMode = TextureWrapMode.Clamp };
             icon.SetPixels32(pixels);
             icon.Apply(false, true);
             Object.DontDestroyOnLoad(icon);
@@ -81,7 +80,7 @@ namespace VrTweaks
         private static PngMask Badge(string letter)
         {
             if (Badges.TryGetValue(letter, out var badge)) return badge;
-            var name = $"VrTweaks.Icons.Badge{letter}.png";
+            var name = $"MeatBadges.Icons.Badge{letter}.png";
             using (var stream = typeof(MeatIcons).Assembly.GetManifestResourceStream(name))
                 badge = stream == null ? null : PngMask.Read(stream);
             if (badge == null) Plugin.Log.LogWarning($"MeatIcons: {name} missing from the plugin");

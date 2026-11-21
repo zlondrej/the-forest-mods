@@ -247,11 +247,6 @@ namespace VrTweaks
                 try { AirHud.Tick(); }
                 catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
             }
-            if (_meatIcons)
-            {
-                try { MeatIcons.Tick(); }
-                catch (Exception e) { Log.LogError($"MeatIcons: {e}"); _meatIcons = false; }
-            }
             if (_playerBody)
             {
                 try { PlayerBody.Tick(); }
@@ -259,7 +254,7 @@ namespace VrTweaks
             }
         }
 
-        private bool _meatIcons = true, _playerBody = true;
+        private bool _playerBody = true;
 
         private static bool Apply(Harmony harmony, string key, params Type[] patchClasses)
         {

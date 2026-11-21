@@ -1,0 +1,2 @@
+# Members MeatBadges looks up by name at runtime. None: everything it uses is referenced directly (checked by RefCheck).
+# Checked against both builds by scripts/check-plugin.sh. Prefix '?' = may be absent in a build.
