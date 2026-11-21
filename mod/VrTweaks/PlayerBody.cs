@@ -8,9 +8,9 @@ namespace VrTweaks
     /// <summary>
     /// VR draws the player's body only as a shadow (VRPlayerAdapter sets PlayerMeshesToDisable to shadows only), so
     /// looking down there is nothing below the floating VR hands. Here the body is drawn: torso and legs, clothes and
-    /// armour, following the VR body as the game animates it. Left out: the head (it would block the view; its meshes
-    /// are also on a layer the eye camera doesn't draw) and the bare arms and hands (the VR hands are drawn where your
-    /// controllers are; the body's own would be a second pair). Sleeves stay, as part of the shirts and jackets.
+    /// armour, following the VR body as the game animates it, and the outfit's own arms or hands instead of the VR
+    /// hands (UpdateArms). Left out: the head (it would block the view; its meshes are also on a layer the eye camera
+    /// doesn't draw). Where the body stands and how it turns: BodyPlacement.
     /// Armour (<see cref="Armor"/>) and the backpack (<see cref="Backpack"/>) can be left out, as they block the view
     /// looking down. Armour left out isn't drawn at all, not even its shadow (a shadow of armour you don't see looks
     /// wrong); a backpack left out still casts its shadow, as in vanilla.
@@ -241,7 +241,7 @@ namespace VrTweaks
         private static bool IsLimbName(string lower) =>
             lower.Contains("arm") || lower.Contains("hand") || lower.Contains("leg") || lower.Contains("foot");
 
-        /// <summary>Bare arms and hands ("char_arms_GEO1", "...JustHands..."), and sleeves made for the VR arms.</summary>
+        /// <summary>The arms meshes ("char_arms_GEO1", "...JustHands...", the VR hands): UpdateArms draws them, not Tick.</summary>
         private static bool IsArm(string name)
         {
             var lower = name.ToLowerInvariant().Replace("armor", "");

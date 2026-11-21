@@ -70,7 +70,7 @@ namespace VrTweaks
         private void BindSettings()
         {
             _bodyVisible = Config.Bind("PlayerBody", "Visible", PlayerBody.Visible,
-                "Draw your body in VR (torso and legs, clothes and armour; not the head, nor the bare arms: the VR hands are drawn instead). Vanilla VR only draws its shadow.");
+                "Draw your body in VR (torso and legs, clothes and armour, the outfit's own arms and hands instead of the VR hands; not the head). Vanilla VR only draws its shadow.");
             _bodyArmor = Config.Bind("PlayerBody", "Armor", PlayerBody.Armor,
                 "Which armour is drawn on your body: None, Limbs (arms and legs only: chest and shoulder pieces block the view looking down) or All. Armour not drawn casts no shadow either.");
             _bodyBackpack = Config.Bind("PlayerBody", "Backpack", PlayerBody.Backpack,
