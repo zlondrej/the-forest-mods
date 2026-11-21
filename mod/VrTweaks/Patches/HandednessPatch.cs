@@ -53,7 +53,8 @@ namespace VrTweaks
             harmony.Patch(update, prefix: new HarmonyMethod(typeof(HandednessPatch), nameof(UpdateHandednessPrefix)));
             harmony.Patch(ikSolve, prefix: new HarmonyMethod(typeof(HandednessPatch), nameof(IkSolvePrefix)));
             harmony.Patch(AccessTools.Method(typeof(InverseKinematics), nameof(InverseKinematics.Solve)),
-                prefix: new HarmonyMethod(typeof(HandednessPatch), nameof(FoldElbowPrefix)));
+                prefix: new HarmonyMethod(typeof(HandednessPatch), nameof(FoldElbowPrefix)),
+                postfix: new HarmonyMethod(typeof(HandednessPatch), nameof(StretchAtElbowPostfix)));
             return true;
         }
 
@@ -220,13 +221,14 @@ namespace VrTweaks
         /// controllers): the arms bend their elbows towards a hint point each, and the game's sit on the body (or, for
         /// other players, follow a few fixed directions), letting elbows point up or in when the hands are raised or
         /// crossed. Here each elbow's hint is below the middle of its arm, out to its own side and a little back,
-        /// wherever the hand is: elbows fold down and away from the body.
+        /// wherever the hand is: elbows fold down and away from the body; rolled a little with the wrist's twist.
         /// </summary>
         private static void FoldElbowPrefix(InverseKinematics __instance)
         {
             if (!ForestVR.Enabled) return;
             var arm = __instance;
             if (!arm.upperArm || !arm.target) return;
+            RestoreStretch(arm);
             var body = Body(arm);
             var outward = body.right;
             outward.y = 0f;
@@ -240,7 +242,15 @@ namespace VrTweaks
                 ElbowHints[arm] = hint = NewProxy("VrTweaks elbow hint", arm.transform);
             }
             var middle = (arm.upperArm.position + arm.target.position) / 2f;
-            hint.position = middle + Vector3.down * ElbowDown + outward.normalized * ElbowOut + back.normalized * ElbowBack;
+            var offset = Vector3.down * ElbowDown + outward.normalized * ElbowOut + back.normalized * ElbowBack;
+            // The elbow rolls a little with the wrist's twist (the upper arm turning with the forearm).
+            if (Rests.TryGetValue(arm, out var rest))
+            {
+                float roll = Mathf.Clamp(rest.Twist * ElbowTwistShare, -ElbowTwistLimit, ElbowTwistLimit);
+                var along = arm.target.position - arm.upperArm.position;
+                if (along.sqrMagnitude > 1e-6f) offset = Quaternion.AngleAxis(roll, along.normalized) * offset;
+            }
+            hint.position = middle + offset;
             arm.elbow = hint;
         }
 
@@ -249,9 +259,239 @@ namespace VrTweaks
         {
             if (Bodies.TryGetValue(arm, out var body) && body) return body;
             var sync = arm.GetComponentInParent<VRCoopPlayerSync>();
-            body = sync && !(sync.entity && sync.entity.isOwner) ? sync.transform : LocalPlayer.Transform ? LocalPlayer.Transform : arm.transform.root;
+            if (sync && !(sync.entity && sync.entity.isOwner)) body = sync.transform;
+            else
+            {
+                // You: the skeleton itself, which BodyPlacement turns to where you face.
+                var adapter = LocalPlayer.vrAdapter;
+                if (adapter && adapter.JointsOffsetTransform) return adapter.JointsOffsetTransform;
+                body = LocalPlayer.Transform ? LocalPlayer.Transform : arm.transform.root;
+            }
             Bodies[arm] = body;
             return body;
+        }
+
+        // Each arm as the rig has it before posing: the forearm's and hand's local positions, the hand's local
+        // rotation, the forearm twist bones' local positions and rotations (and how far along the forearm each sits),
+        // the bone lengths; the watch's place on the left hand. Everything posed here is put back to this each frame.
+        private sealed class Rest
+        {
+            public Vector3 Forearm, Hand;
+            public Quaternion HandRotation;
+            public float UpperLength, ForearmLength;
+            public Transform[] Twists;
+            public Vector3[] TwistPositions;
+            public Quaternion[] TwistRotations;
+            public float[] TwistAlong;
+            public float Twist; // the wrist's twist last frame, smoothed (degrees, around the forearm)
+            public Transform Watch;
+            public Vector3 WatchPosition, WatchFromTwistPosition;
+            public Quaternion WatchRotation, WatchFromTwistRotation;
+        }
+
+        private static readonly Dictionary<InverseKinematics, Rest> Rests = new Dictionary<InverseKinematics, Rest>();
+
+        /// <summary>How much of the wrist's twist the elbow takes, rolling up or down around the arm (and its limit).</summary>
+        private const float ElbowTwistShare = 0.3f, ElbowTwistLimit = 30f;
+
+        /// <summary>The watch: carried by the forearm, its angle halfway between the forearm's and the hand's.</summary>
+        private const float WatchFollowsHand = 0.5f;
+
+        /// <summary>Before posing: the arm's bones back as the rig has them (the stretch and twist are redone each frame).</summary>
+        private static void RestoreStretch(InverseKinematics arm)
+        {
+            if (!arm.forearm || !arm.hand) return;
+            if (!Rests.TryGetValue(arm, out var rest))
+            {
+                Rests[arm] = Measure(arm);
+                return;
+            }
+            arm.forearm.localPosition = rest.Forearm;
+            arm.hand.localPosition = rest.Hand;
+            for (int i = 0; i < rest.Twists.Length; i++)
+            {
+                if (!rest.Twists[i]) continue;
+                rest.Twists[i].localPosition = rest.TwistPositions[i];
+                rest.Twists[i].localRotation = rest.TwistRotations[i];
+            }
+            if (rest.Watch && rest.Watch.parent == arm.hand)
+            {
+                rest.Watch.localPosition = rest.WatchPosition;
+                // Its rotation as the game sets it unmirrored (VRPlayerControl.watchParentLocalRot; UnmirrorArms too).
+                var vr = LocalPlayer.vrPlayerControl;
+                rest.Watch.localRotation = _watchRotation != null && vr ? (Quaternion)_watchRotation.GetValue(vr) : rest.WatchRotation;
+            }
+        }
+
+        private static Rest Measure(InverseKinematics arm)
+        {
+            var twists = new List<Transform>();
+            foreach (var t in arm.forearm.GetComponentsInChildren<Transform>(true))
+                if (t != arm.forearm && t.name.IndexOf("ForeArmTwist", StringComparison.OrdinalIgnoreCase) >= 0) twists.Add(t);
+            twists.Sort((a, b) => Depth(a).CompareTo(Depth(b))); // the chain from the elbow to the wrist
+            float length = Vector3.Distance(arm.forearm.position, arm.hand.position);
+            var axis = (arm.hand.position - arm.forearm.position).normalized;
+            var rest = new Rest
+            {
+                Forearm = arm.forearm.localPosition,
+                Hand = arm.hand.localPosition,
+                HandRotation = arm.hand.localRotation,
+                UpperLength = Vector3.Distance(arm.upperArm.position, arm.forearm.position),
+                ForearmLength = length,
+                Twists = twists.ToArray(),
+                TwistPositions = twists.ConvertAll(t => t.localPosition).ToArray(),
+                TwistRotations = twists.ConvertAll(t => t.localRotation).ToArray(),
+                TwistAlong = twists.ConvertAll(t => length > 1e-4f ? Mathf.Clamp01(Vector3.Dot(t.position - arm.forearm.position, axis) / length) : 0f).ToArray(),
+            };
+            var adapter = LocalPlayer.vrAdapter;
+            var watch = adapter && adapter.VRWatchParentGo ? adapter.VRWatchParentGo.transform : null;
+            if (watch && watch.parent == arm.hand)
+            {
+                rest.Watch = watch;
+                rest.WatchPosition = watch.localPosition;
+                rest.WatchRotation = watch.localRotation;
+                var reference = twists.Count > 0 ? twists[twists.Count - 1] : arm.forearm;
+                rest.WatchFromTwistPosition = reference.InverseTransformPoint(watch.position);
+                rest.WatchFromTwistRotation = Quaternion.Inverse(reference.rotation) * watch.rotation;
+            }
+            return rest;
+        }
+
+        private static int Depth(Transform t)
+        {
+            int depth = 0;
+            for (; t; t = t.parent) depth++;
+            return depth;
+        }
+
+        /// <summary>
+        /// After posing:
+        /// - Stretch: the game puts the hand right on the controller even when it is out of the arm's reach, so the hand
+        ///   came off the forearm and the skin stretched at the wrist. The stretch is shared out along the whole arm:
+        ///   the elbow moves out along it (the upper arm takes its share), and the forearm's twist bones spread evenly
+        ///   between elbow and wrist (the forearm takes the rest), the hand staying on the controller.
+        /// - Twist: the hand turns with the controller, the forearm doesn't, so the skin wrung at the wrist. The wrist's
+        ///   twist is shared out along the forearm's twist bones (a quarter, half, three quarters...), and the elbow
+        ///   rolls a little with it (next frame, by the elbow hint).
+        /// - Elbow: never inside the body (KeepElbowOut).
+        /// - Watch: it hangs from the hand; it's put where the forearm carries it and turned halfway back towards the
+        ///   forearm, as on a real wrist.
+        /// </summary>
+        private static void StretchAtElbowPostfix(InverseKinematics __instance)
+        {
+            if (!ForestVR.Enabled) return;
+            var arm = __instance;
+            if (!arm.upperArm || !arm.forearm || !arm.hand || !arm.target || !Rests.TryGetValue(arm, out var rest)) return;
+
+            var toTarget = arm.target.position - arm.upperArm.position;
+            float excess = toTarget.magnitude - (rest.UpperLength + rest.ForearmLength);
+            if (excess > 0.001f)
+            {
+                var target = arm.hand.position;
+                var handRotation = arm.hand.rotation;
+                float upperShare = rest.UpperLength / Mathf.Max(1e-4f, rest.UpperLength + rest.ForearmLength);
+                arm.forearm.position += toTarget.normalized * (excess * upperShare);
+                arm.hand.SetPositionAndRotation(target, handRotation);
+                var along = arm.hand.position - arm.forearm.position;
+                for (int i = 0; i < rest.Twists.Length; i++)
+                {
+                    var t = rest.Twists[i];
+                    if (!t) continue;
+                    // Where it sits along the stretched forearm, the same share of the way as unstretched.
+                    var onAxis = Vector3.Dot(t.position - arm.forearm.position, along.normalized);
+                    t.position += along.normalized * (rest.TwistAlong[i] * along.magnitude - onAxis);
+                }
+            }
+
+            KeepElbowOut(arm);
+
+            // The wrist's twist around the forearm: the hand as turned, against the hand as the forearm carries it.
+            var axis = (arm.hand.position - arm.forearm.position).normalized;
+            var carried = arm.forearm.rotation * rest.HandRotation;
+            float twist = TwistAround(arm.hand.rotation * Quaternion.Inverse(carried), axis);
+            int n = rest.Twists.Length;
+            float given = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                var t = rest.Twists[i];
+                if (!t) continue;
+                float share = twist * (i + 1) / (n + 1); // each twist bone turns this much in all (its parents included)
+                t.rotation = Quaternion.AngleAxis(share - given, axis) * t.rotation;
+                given = share;
+            }
+            rest.Twist = Mathf.Lerp(rest.Twist, twist, 0.2f);
+
+            if (rest.Watch && rest.Watch.parent == arm.hand)
+            {
+                var reference = n > 0 && rest.Twists[n - 1] ? rest.Twists[n - 1] : arm.forearm;
+                var fromForearm = reference.rotation * rest.WatchFromTwistRotation;
+                var fromForearmPosition = reference.TransformPoint(rest.WatchFromTwistPosition);
+                // Moved sideways across the wrist by the setting (along the watch's own side, across the forearm).
+                var across = fromForearm * Vector3.right;
+                across -= axis * Vector3.Dot(across, axis);
+                if (across.sqrMagnitude > 1e-6f) fromForearmPosition += across.normalized * PlayerBody.WatchSide;
+                // Where the forearm carries it (the hand would swing it about the wrist, into the forearm or off to
+                // a side as the wrist bends), moved along the forearm by the setting; turned partly with the hand.
+                rest.Watch.SetPositionAndRotation(
+                    fromForearmPosition + axis * PlayerBody.WatchOffset,
+                    Quaternion.Slerp(fromForearm, rest.Watch.rotation, WatchFollowsHand));
+            }
+        }
+
+        /// <summary>
+        /// The elbow never inside the body: if it ends up nearer the body's middle than the shoulder is (and not
+        /// in front of the chest, where crossed arms put it), the arm is turned around the line from shoulder to hand,
+        /// the way that brings the elbow out, in 5° steps up to 90°. The hand stays on the controller.
+        /// </summary>
+        private static void KeepElbowOut(InverseKinematics arm)
+        {
+            var shoulder = arm.upperArm.parent;
+            var torso = shoulder ? shoulder.parent : null; // char_Spine2: the chest's middle
+            if (!torso) return;
+            var body = Body(arm);
+            var right = body.right;
+            right.y = 0f;
+            var forward = body.forward;
+            forward.y = 0f;
+            if (right.sqrMagnitude < 1e-4f || forward.sqrMagnitude < 1e-4f) return;
+            right.Normalize();
+            forward.Normalize();
+            float side = arm.upperArm.name.IndexOf("Left", StringComparison.OrdinalIgnoreCase) >= 0 ? -1f : 1f;
+            float minOut = Mathf.Abs(Vector3.Dot(arm.upperArm.position - torso.position, right)) * 0.85f;
+            float Out() => side * Vector3.Dot(arm.forearm.position - torso.position, right) - minOut;
+            bool Inside()
+            {
+                var elbow = arm.forearm.position;
+                return Out() < 0f && Vector3.Dot(elbow - torso.position, forward) < ElbowInFront
+                       && elbow.y < arm.upperArm.position.y + 0.05f && elbow.y > torso.position.y - 0.6f;
+            }
+            if (!Inside()) return;
+            var axis = arm.hand.position - arm.upperArm.position;
+            if (axis.sqrMagnitude < 1e-4f) return;
+            axis.Normalize();
+            var handPosition = arm.hand.position;
+            var handRotation = arm.hand.rotation;
+            // Which way out: try a step each way.
+            arm.upperArm.RotateAround(arm.upperArm.position, axis, 5f);
+            float plus = Out();
+            arm.upperArm.RotateAround(arm.upperArm.position, axis, -10f);
+            float minus = Out();
+            arm.upperArm.RotateAround(arm.upperArm.position, axis, 5f);
+            float step = plus >= minus ? 5f : -5f;
+            for (int i = 0; i < 18 && Inside(); i++) arm.upperArm.RotateAround(arm.upperArm.position, axis, step);
+            arm.hand.SetPositionAndRotation(handPosition, handRotation);
+        }
+
+        /// <summary>An elbow this far (metres) in front of the chest's middle is in front of the body, not inside it.</summary>
+        private const float ElbowInFront = 0.12f;
+
+        /// <summary>The signed angle (degrees) a rotation turns around an axis: its twist part (swing-twist).</summary>
+        private static float TwistAround(Quaternion q, Vector3 axis)
+        {
+            var v = new Vector3(q.x, q.y, q.z);
+            float along = Vector3.Dot(v, axis);
+            float angle = 2f * Mathf.Atan2(along, q.w) * Mathf.Rad2Deg;
+            return Mathf.DeltaAngle(0f, angle);
         }
 
         /// <summary>Players come and go: drop the arms that are gone.</summary>
@@ -289,77 +529,65 @@ namespace VrTweaks
         }
 
         /// <summary>
-        /// The fingers' poses, swapped between the hands while mirrored. Vanilla showed the right hand at the left
-        /// controller: its grip on the held weapon, and the finger curls of the left controller (the game feeds each
-        /// controller's curls to the other hand while mirrored). With each arm at its own controller, those poses
-        /// belong on the left hand, and the left hand's on the right. The rig is mirrored left to right with equal
-        /// local rotations, so a pose moves across as it is. Bones the animation doesn't set every frame keep their
-        /// own pose (not swapped back and forth).
+        /// The fingers, swapped between the hands while mirrored. Each finger is posed by a VrFingerCurl component
+        /// (after the animation, from its controller's grip: "VRLeftIndexCurl" bends the left index finger). Mirrored,
+        /// the game feeds each hand's curls from the other controller, as vanilla showed the right hand at the left
+        /// controller. With each arm at its own controller, each curl now bends the other hand's finger (its target
+        /// bones swapped with its counterpart's), so the fingers follow the controller they're at. The rig is
+        /// mirrored left to right with equal local rotations, so the curls' poses fit either hand.
         /// </summary>
         private static class Fingers
         {
-            private sealed class Pair
-            {
-                public Transform Left, Right;
-                public Quaternion LeftOwn, RightOwn, LeftSet, RightSet;
-                public bool Set;
-            }
-
-            private static readonly List<Pair> Pairs = new List<Pair>();
-            private static Transform _leftHand;
+            private static readonly Type CurlType = typeof(VRPlayerControl).Assembly.GetType("TheForest.Utils.VrFingerCurl");
+            private static readonly FieldInfo Id = CurlType == null ? null : AccessTools.Field(CurlType, "_id");
+            private static readonly FieldInfo Targets = CurlType == null ? null : AccessTools.Field(CurlType, "_targets");
+            private static readonly List<KeyValuePair<Component, Component>> Pairs = new List<KeyValuePair<Component, Component>>();
+            private static Component _player;
             private static bool _swapped;
 
             public static void Swap(VRPlayerControl vr)
             {
-                if (!Find(vr)) return;
-                foreach (var p in Pairs)
-                {
-                    if (!p.Left || !p.Right) continue;
-                    // This frame's own pose: the animation's, unless it left what was set last frame.
-                    if (!p.Set || p.Left.localRotation != p.LeftSet) p.LeftOwn = p.Left.localRotation;
-                    if (!p.Set || p.Right.localRotation != p.RightSet) p.RightOwn = p.Right.localRotation;
-                    p.Left.localRotation = p.LeftSet = p.RightOwn;
-                    p.Right.localRotation = p.RightSet = p.LeftOwn;
-                    p.Set = true;
-                }
+                if (_swapped || !Find()) return;
+                Exchange();
                 _swapped = true;
             }
 
-            /// <summary>Unmirrored: each hand's own pose back where the animation doesn't set it.</summary>
+            /// <summary>Unmirrored: each curl back on its own hand.</summary>
             public static void Restore()
             {
                 if (!_swapped) return;
                 _swapped = false;
-                foreach (var p in Pairs)
+                if (_player && LocalPlayer.Transform == _player.transform) Exchange();
+            }
+
+            private static void Exchange()
+            {
+                foreach (var pair in Pairs)
                 {
-                    if (!p.Set || !p.Left || !p.Right) continue;
-                    if (p.Left.localRotation == p.LeftSet) p.Left.localRotation = p.LeftOwn;
-                    if (p.Right.localRotation == p.RightSet) p.Right.localRotation = p.RightOwn;
-                    p.Set = false;
+                    if (!pair.Key || !pair.Value) continue;
+                    var left = Targets.GetValue(pair.Key);
+                    Targets.SetValue(pair.Key, Targets.GetValue(pair.Value));
+                    Targets.SetValue(pair.Value, left);
                 }
             }
 
-            /// <summary>The finger bones under each hand (char_LeftHand.../char_RightHand..., not the weapon bones), paired by name.</summary>
-            private static bool Find(VRPlayerControl vr)
+            /// <summary>The player's finger curls, left with right by id ("VRLeftIndexCurl" with "VRRightIndexCurl").</summary>
+            private static bool Find()
             {
-                var left = _leftIk.GetValue(vr) as InverseKinematics;
-                var right = _rightIk.GetValue(vr) as InverseKinematics;
-                if (!left || !right || !left.hand || !right.hand) return false;
-                if (_leftHand == left.hand && Pairs.Count > 0) return true;
-                _leftHand = left.hand;
+                if (Id == null || Targets == null || !LocalPlayer.Transform) return false;
+                if (_player == LocalPlayer.Transform) return Pairs.Count > 0;
+                _player = LocalPlayer.Transform;
                 Pairs.Clear();
-                var rights = new Dictionary<string, Transform>();
-                foreach (var t in right.hand.GetComponentsInChildren<Transform>(true))
-                    if (IsFinger(t, "char_RightHand")) rights[t.name] = t;
-                foreach (var t in left.hand.GetComponentsInChildren<Transform>(true))
-                    if (IsFinger(t, "char_LeftHand") && rights.TryGetValue("char_RightHand" + t.name.Substring("char_LeftHand".Length), out var r))
-                        Pairs.Add(new Pair { Left = t, Right = r });
+                var rights = new Dictionary<string, Component>();
+                var curls = LocalPlayer.Transform.GetComponentsInChildren(CurlType, true);
+                foreach (var curl in curls)
+                    if (Id.GetValue(curl) is string id && id.StartsWith("VRRight", StringComparison.Ordinal)) rights[id.Substring(7)] = curl;
+                foreach (var curl in curls)
+                    if (Id.GetValue(curl) is string id && id.StartsWith("VRLeft", StringComparison.Ordinal) && rights.TryGetValue(id.Substring(6), out var right))
+                        Pairs.Add(new KeyValuePair<Component, Component>(curl, right));
+                Plugin.Log.LogInfo($"Handedness: {Pairs.Count} finger curls paired for mirrored hands");
                 return Pairs.Count > 0;
             }
-
-            private static bool IsFinger(Transform t, string prefix) =>
-                t.name.StartsWith(prefix, StringComparison.Ordinal) && t.name.Length > prefix.Length
-                && t.name.IndexOf("Weapon", StringComparison.Ordinal) < 0;
         }
 
         private static void SetScale(Transform t, Vector3 scale)

@@ -10,16 +10,13 @@ namespace VrTweaks
     /// turns around the neck): the body leaned forward into the view when you only looked down. Here the spine
     /// follows where your eyes would be with the head held level, i.e. the neck's movement: looking down keeps the
     /// body upright, leaning still leans it. And upright means upright: vanilla bent towards its head point
-    /// (VRCameraOrigin), which sits about 25 cm ahead of the spine, so the body always leaned forward some 13°; here
-    /// the spine bends by how far your neck is from that point, starting from straight up (PlayerBody brings the
-    /// body forward under your head instead). Otherwise as vanilla (clamps, bend amount, smoothing, the twist when you
-    /// turn your head).
+    /// (VRCameraOrigin), which sits about 23 cm ahead of the spine, so the body always leaned forward some 13°; here
+    /// the spine bends by how far your neck is from where it would be on the upright body (BodyPlacement stands the
+    /// body under it, so this is the lean within its follow slack). Otherwise as vanilla (clamps, bend amount,
+    /// smoothing, the twist when you turn your head).
     /// </summary>
     internal static class SpinePatch
     {
-        /// <summary>From the eyes to the neck's pivot, in the head's frame (metres): below and behind the eyes.</summary>
-        private static readonly Vector3 EyesToNeck = new Vector3(0f, -0.11f, -0.09f);
-
         private static AccessTools.FieldRef<VRPlayerControl, Vector3> _smoothPosition, _velRef;
         private static AccessTools.FieldRef<VRPlayerControl, float> _smoothTargetAngle;
 
@@ -48,25 +45,20 @@ namespace VrTweaks
             var spine = vr.spineBones != null && vr.spineBones.Length > 0 ? vr.spineBones[0] : null;
             if (vr.useGhostMode || !origin || !follow || !spine || !vr.headTransform) return false;
 
-            // Where the eyes would be with the head level (turned the same way): the neck's movement only.
-            var forward = follow.forward;
-            forward.y = 0f;
-            var level = forward.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(forward) : follow.rotation;
-            var eyes = follow.position + follow.rotation * EyesToNeck - level * EyesToNeck;
-
-            var local = origin.InverseTransformPoint(eyes);
-            local.x = Mathf.Clamp(local.x, -vr.xClampValue, vr.xClampValue) * vr.spineBendAmount;
-            local.z = Mathf.Clamp(local.z, -vr.zClampValue, vr.zClampValue) * vr.spineBendAmount;
-            // Upright over the spine with your head at the head point; leaning (your neck away from it) leans it.
-            var target = origin.TransformPoint(local);
-            target.x += spine.position.x - origin.position.x;
-            target.z += spine.position.z - origin.position.z;
+            // Your lean: where your eyes are (head held level) against where they'd be on the upright body, in the
+            // body's frame; the spine bends that way, clamped and scaled as vanilla. Height: the game's head point.
+            var forward = BodyPlacement.BodyForward(vr);
+            var right = Vector3.Cross(Vector3.up, forward);
+            var lean = BodyPlacement.LevelEyes(follow) - (spine.position + forward * (BodyPlacement.EyesAheadOfSpine + BodyPlacement.BackNow));
+            float x = Mathf.Clamp(Vector3.Dot(lean, right), -vr.xClampValue, vr.xClampValue) * vr.spineBendAmount;
+            float z = Mathf.Clamp(Vector3.Dot(lean, forward), -vr.zClampValue, vr.zClampValue) * vr.spineBendAmount;
+            var target = spine.position + right * x + forward * z;
             target.y = origin.position.y;
             ref var smooth = ref _smoothPosition(vr);
             smooth = Vector3.SmoothDamp(smooth, target, ref _velRef(vr), 0.025f);
             var toTarget = smooth - spine.position;
             bool locked = DisableSpineInput();
-            if (!locked) spine.rotation = Quaternion.LookRotation(toTarget, vr.transform.forward) * Quaternion.Euler(-90f, 90f, 90f);
+            if (!locked) spine.rotation = Quaternion.LookRotation(toTarget, forward) * Quaternion.Euler(-90f, 90f, 90f);
 
             // The twist as you turn your head, as vanilla.
             var look = vr.headTransform.InverseTransformPoint(follow.position + follow.forward * 10f);

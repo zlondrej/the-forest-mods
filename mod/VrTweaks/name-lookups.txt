@@ -48,3 +48,9 @@ PlayerPreferences::VRUseRightHandedWeapon
 ?VRPlayerControl::watchParentLocalRot
 ?VRPlayerControl::watchParentLocalScale
 InverseKinematics::Solve
+?TheForest.Utils.VrFingerCurl::_id
+?TheForest.Utils.VrFingerCurl::_targets
+VRPlayerControl::LateUpdate
+?PlayerPreferences::VRForwardMovement
+playerAnimatorControl::FixedUpdate
+?playerAnimatorControl::modLocalVel

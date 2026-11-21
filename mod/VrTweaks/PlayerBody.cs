@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using TheForest.Items.Inventory;
 using TheForest.Utils;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -13,7 +12,8 @@ namespace VrTweaks
     /// are also on a layer the eye camera doesn't draw) and the bare arms and hands (the VR hands are drawn where your
     /// controllers are; the body's own would be a second pair). Sleeves stay, as part of the shirts and jackets.
     /// Armour (<see cref="Armor"/>) and the backpack (<see cref="Backpack"/>) can be left out, as they block the view
-    /// looking down: they then only cast their shadow, as in vanilla.
+    /// looking down. Armour left out isn't drawn at all, not even its shadow (a shadow of armour you don't see looks
+    /// wrong); a backpack left out still casts its shadow, as in vanilla.
     /// </summary>
     internal static class PlayerBody
     {
@@ -27,14 +27,40 @@ namespace VrTweaks
         /// <summary>Draw the backpack.</summary>
         public static bool Backpack = false;
 
-        /// <summary>Metres the body sits further back behind your eyes than worked out (negative = forward).</summary>
-        public static float BackOffset = 0f;
+        /// <summary>Metres the body moves back behind your eyes when you look down (negative = forward); see BodyPlacement.</summary>
+        public static float BackOffset = 0.5f;
+
+        /// <summary>Metres the watch sits further along the forearm, towards the fingertips (negative = towards the elbow).</summary>
+        public static float WatchOffset = 0.03f;
+
+        /// <summary>Metres the watch is moved sideways across the wrist (its angle unchanged).</summary>
+        public static float WatchSide = 0.02f;
+
+        /// <summary>The same looking ahead or up (BackOffset is blended in as you look down).</summary>
+        public static float BackOffsetAhead = 0.1f;
 
         private static VRPlayerAdapter _done;
         private static int _drawnWith = -1; // the Armor and Backpack settings the body is drawn with
-        private static readonly List<Renderer> Shown = new List<Renderer>();
 
-        /// <summary>A few times per second: once per player (it is recreated on load), draw the body; or undraw it.</summary>
+        // Every renderer changed, with how the game had it (put back by Hide).
+        private struct Was
+        {
+            public bool Enabled;
+            public ShadowCastingMode Mode;
+        }
+
+        private static readonly Dictionary<Renderer, Was> Changed = new Dictionary<Renderer, Was>();
+        private static int _drawn;
+        private static readonly List<string> ArmorDrawn = new List<string>(), ArmorLeftOut = new List<string>(); // for the log
+
+        /// <summary>
+        /// A few times per second: once per player (it is recreated on load), draw the body; or undraw it.
+        /// How vanilla VR leaves them (VRPlayerAdapter.ConvertToVR): the clothes and the skinned armour (lizard,
+        /// stealth, creepy, some bone pieces) cast only a shadow; of the armour hung on the bones, the leaf armour's
+        /// leaves are drawn as in flat-screen and the bone armour's plates are switched off altogether. So the armour on
+        /// the skeleton is gone through too, and here every piece follows the Armor setting instead: drawn (with its
+        /// shadow) or not at all.
+        /// </summary>
         public static void Tick()
         {
             if (!ForestVR.Enabled) return;
@@ -48,40 +74,116 @@ namespace VrTweaks
             if (!adapter || adapter == _done || adapter.PlayerMeshesToDisable == null) return;
             _done = adapter;
             _drawnWith = settings;
-            Shown.Clear();
+            Changed.Clear();
+            ArmorDrawn.Clear();
+            ArmorLeftOut.Clear();
+            _drawn = 0;
+            foreach (var go in adapter.PlayerMeshesToDisable)
+                if (go)
+                    foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+                        Draw(adapter, r);
+            if (adapter.JointsOffsetTransform)
+                foreach (var r in adapter.JointsOffsetTransform.GetComponentsInChildren<MeshRenderer>(true))
+                    if (r && IsArmor(r.transform) && !IsHeld(r.transform)) Draw(adapter, r);
+            Plugin.Log.LogInfo($"PlayerBody: {_drawn} body meshes drawn (armour: {Armor}, backpack: {Backpack}); armour drawn: "
+                               + $"{string.Join(", ", ArmorDrawn.ToArray())}; left out: {string.Join(", ", ArmorLeftOut.ToArray())}");
+        }
+
+        private static void Draw(VRPlayerAdapter adapter, Renderer r)
+        {
+            if (!r || Changed.ContainsKey(r)) return;
+            if (r == adapter.PlayerHead1 || BodyView.IsHead(r.name)) return;
+            if (IsArmor(r.transform))
+            {
+                bool drawn = Armor == ArmorShown.All || (Armor == ArmorShown.Limbs && OnLimb(r.transform));
+                Set(r, drawn, ShadowCastingMode.On); // left out: not even its shadow
+                (drawn ? ArmorDrawn : ArmorLeftOut).Add(r.name);
+                return;
+            }
+            if (r.shadowCastingMode != ShadowCastingMode.ShadowsOnly) return; // what VR draws anyway
+            if (IsBackpack(r.name) ? !Backpack : IsArm(r.name)) return; // the backpack left out keeps its shadow
+            Set(r, r.enabled, ShadowCastingMode.On);
+        }
+
+        private static void Set(Renderer r, bool enabled, ShadowCastingMode mode)
+        {
+            Changed[r] = new Was { Enabled = r.enabled, Mode = r.shadowCastingMode };
+            r.enabled = enabled;
+            r.shadowCastingMode = mode;
+            if (enabled) _drawn++;
+        }
+
+        /// <summary>Back to vanilla: every renderer as the game had it.</summary>
+        private static void Hide()
+        {
+            if (!_done) return;
+            foreach (var pair in Changed)
+            {
+                if (!pair.Key) continue;
+                pair.Key.enabled = pair.Value.Enabled;
+                pair.Key.shadowCastingMode = pair.Value.Mode;
+            }
+            Changed.Clear();
+            _done = null;
+            Plugin.Log.LogInfo("PlayerBody: body drawn as a shadow only");
+        }
+
+        /// <summary>Something held in a hand ("rightHandHeld", "leftHandHeld" and below), not worn.</summary>
+        private static bool IsHeld(Transform t)
+        {
+            for (; t; t = t.parent)
+                if (t.name.IndexOf("Held", System.StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            return false;
+        }
+
+        // The arms and hands. VR draws its own hands mesh (char_VR_Hands_GEO, VRPlayerAdapter.VRPlayerHands): hands and
+        // wrists only, stiff at the wrist. The outfit switches the body's own arms meshes on, which VR only lets cast
+        // a shadow: the bare arms with hands for short sleeves (char_arms_GEO1, VRPlayerAdapter.defaultPlayerArms),
+        // just the hands for long sleeves (char_arms_JustHands_GEO). The one the outfit wears is drawn instead of the
+        // VR hands (same skeleton, so the same finger poses; both drawn, the hands would overlap): forearms with short
+        // sleeves, hands that bend at the wrist with either. In the world view only: the inventory draws the VR hands
+        // on its own layer. The watch is its own object on the left hand bone, drawn either way.
+        private static VRPlayerAdapter _armsAdapter;
+        private static Renderer _justHands, _drawnArms;
+
+        /// <summary>Every frame.</summary>
+        public static void UpdateArms()
+        {
+            if (!ForestVR.Enabled) return;
+            var adapter = LocalPlayer.vrAdapter;
+            if (adapter != _armsAdapter)
+            {
+                _armsAdapter = adapter;
+                _drawnArms = null; // a new player: as the game set it up
+                _justHands = adapter ? FindRenderer(adapter, "char_arms_JustHands_GEO") : null;
+            }
+            if (!adapter || !adapter.VRPlayerHands) return;
+            var hands = adapter.VRPlayerHands;
+            var vr = LocalPlayer.vrPlayerControl;
+            Renderer worn = null;
+            if (Visible && _done && hands.gameObject.activeInHierarchy && vr && !vr.useGhostMode && LocalPlayer.Inventory
+                && LocalPlayer.Inventory.CurrentView == TheForest.Items.Inventory.PlayerInventory.PlayerViews.World)
+            {
+                if (adapter.defaultPlayerArms && adapter.defaultPlayerArms.gameObject.activeInHierarchy) worn = adapter.defaultPlayerArms;
+                else if (_justHands && _justHands.gameObject.activeInHierarchy) worn = _justHands;
+            }
+            if (worn == _drawnArms) return;
+            if (_drawnArms) _drawnArms.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+            if (worn) worn.shadowCastingMode = ShadowCastingMode.On;
+            hands.shadowCastingMode = worn ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
+            _drawnArms = worn;
+        }
+
+        private static Renderer FindRenderer(VRPlayerAdapter adapter, string name)
+        {
+            if (adapter.PlayerMeshesToDisable == null) return null;
             foreach (var go in adapter.PlayerMeshesToDisable)
             {
                 if (!go) continue;
                 foreach (var r in go.GetComponentsInChildren<Renderer>(true))
-                {
-                    if (!r || r.shadowCastingMode != ShadowCastingMode.ShadowsOnly) continue;
-                    if (r == adapter.PlayerHead1 || BodyView.IsHead(r.name)) continue;
-                    if (IsBackpack(r.name))
-                    {
-                        if (!Backpack) continue;
-                    }
-                    else if (IsArmor(r.transform))
-                    {
-                        if (Armor == ArmorShown.None || (Armor == ArmorShown.Limbs && !OnLimb(r.transform))) continue;
-                    }
-                    else if (IsArm(r.name)) continue;
-                    r.shadowCastingMode = ShadowCastingMode.On;
-                    Shown.Add(r);
-                }
+                    if (r && r.name == name) return r;
             }
-            Plugin.Log.LogInfo($"PlayerBody: {Shown.Count} body meshes drawn (armour: {Armor}, backpack: {Backpack})");
-        }
-
-        /// <summary>Back to vanilla: the body's meshes only cast their shadow.</summary>
-        private static void Hide()
-        {
-            if (!_done) return;
-            foreach (var r in Shown)
-                if (r && r.shadowCastingMode == ShadowCastingMode.On)
-                    r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
-            Shown.Clear();
-            _done = null;
-            Plugin.Log.LogInfo("PlayerBody: body drawn as a shadow only");
+            return null;
         }
 
         private static bool IsBackpack(string name) => name.IndexOf("backpack", System.StringComparison.OrdinalIgnoreCase) >= 0;
@@ -125,84 +227,6 @@ namespace VrTweaks
         {
             var lower = name.ToLowerInvariant().Replace("armor", "");
             return lower.Contains("arm") || lower.Contains("hand");
-        }
-
-        // The game keeps your head around VRCameraOrigin, a point on the body (the body follows when you walk away
-        // from it, and recentring puts your head right on it). Moving that point forward, and your view with it, puts
-        // the body further back behind your eyes; the body itself, its animation and arms stay as the game makes them.
-        private const float OffsetSpeed = 0.5f; // metres per second, easing in
-        private static VRPlayerControl _vr;
-        private static float _vanillaZ, _offset;
-
-        /// <summary>Every frame.</summary>
-        public static void UpdateOffset()
-        {
-            if (!ForestVR.Enabled) return;
-            var vr = LocalPlayer.vrPlayerControl;
-            if (!vr || !vr.VRCameraOrigin || !vr.VRCameraRig) return;
-            var origin = vr.VRCameraOrigin;
-            if (vr != _vr)
-            {
-                _vr = vr; // a new player: its origin is as the game set it
-                _vanillaZ = origin.localPosition.z;
-                _offset = 0f;
-                _ahead = 0f;
-                _aheadSamples = 0;
-            }
-
-            bool inScene = InScene();
-            if (!inScene) MeasureAhead(vr, origin);
-            float goal = Visible && _done && _aheadSamples >= AheadSamples ? BackOffset - Mathf.Max(0f, _ahead - EyesAheadOfSpine) : 0f;
-            if (inScene)
-                _offset = 0f; // the scene places the view itself (and some read the origin as the game set it)
-            else if (_offset != goal)
-            {
-                // Eased, the view moving along so it doesn't jump.
-                float next = Mathf.MoveTowards(_offset, goal, OffsetSpeed * Time.deltaTime);
-                vr.VRCameraRig.position += Forward(origin) * (next - _offset);
-                _offset = next;
-            }
-
-            var local = origin.localPosition; // the game changes its height (crouching), never its z
-            float scale = origin.parent ? Mathf.Max(1e-3f, origin.parent.lossyScale.z) : 1f;
-            float z = _vanillaZ + _offset / scale;
-            if (!Mathf.Approximately(local.z, z)) origin.localPosition = new Vector3(local.x, local.y, z);
-        }
-
-        // The game's head point (VRCameraOrigin) sits well ahead of the body (about 25 cm ahead of the spine in the
-        // player prefab), and the spine leaned the body forward to bring the head under your eyes. The spine now stays
-        // upright (SpinePatch), so the body comes forward instead: by how far the head point is ahead of the spine,
-        // less where your eyes are on an upright body (a little ahead of the spine). Measured per player, averaged
-        // over its first frames outside scenes (the spine sways with the animation).
-        private const float EyesAheadOfSpine = 0.06f;
-        private const int AheadSamples = 60;
-        private static float _ahead;
-        private static int _aheadSamples;
-
-        private static void MeasureAhead(VRPlayerControl vr, Transform origin)
-        {
-            if (_aheadSamples >= AheadSamples || vr.spineBones == null || vr.spineBones.Length == 0 || !vr.spineBones[0]) return;
-            var forward = Forward(origin);
-            var vanillaOrigin = origin.position - forward * _offset;
-            float ahead = Vector3.Dot(vanillaOrigin - vr.spineBones[0].position, forward);
-            _ahead += (ahead - _ahead) / ++_aheadSamples;
-            if (_aheadSamples == AheadSamples)
-                Plugin.Log.LogInfo($"PlayerBody: the game's head point is {_ahead:0.00} m ahead of the spine; the body comes {Mathf.Max(0f, _ahead - EyesAheadOfSpine):0.00} m forward, upright");
-        }
-
-        private static Vector3 Forward(Transform origin)
-        {
-            var forward = origin.parent ? origin.parent.forward : origin.forward;
-            forward.y = 0f;
-            return forward.sqrMagnitude > 1e-4f ? forward.normalized : Vector3.zero;
-        }
-
-        /// <summary>Scenes (theatre mode or immersive camera) and the plane crash: the game or the scene places the view.</summary>
-        private static bool InScene()
-        {
-            var head = LocalPlayer.CamFollowHead;
-            return _vr.useGhostMode || (head && head.followAnim)
-                   || (LocalPlayer.Inventory && LocalPlayer.Inventory.CurrentView == PlayerInventory.PlayerViews.PlaneCrash);
         }
     }
 }

@@ -54,9 +54,12 @@ SETTINGS
     can be tuned.
   - [UnderwaterAirBar]: on/off, distance, height, size and blur of the air bar.
   - [Movement] SprintThreshold: how far to push the stick to sprint with auto-run (0.85 = vanilla).
-  - [PlayerBody] Visible: draw your body (true) or only its shadow, as in vanilla (false); BackOffset: how much
-    further back behind your eyes it sits (metres, 0 = as worked out, negative = forward); Armor: which armour is
-    drawn (None, Limbs = arms and legs only, All); Backpack: draw the backpack (off by default: it blocks the view).
+  - [PlayerBody] Visible: draw your body (true) or only its shadow, as in vanilla (false); BackOffsetLookingAhead,
+    BackOffsetLookingDown: how far behind your eyes it sits looking ahead and looking down (metres); TurnAfter,
+    TurnAfterLookingDown: how far you turn your head before it turns along (degrees); LookingDownFrom,
+    LookingDownOver: from how far down (degrees) the "looking down" values take over, and over how many more
+    degrees; FollowAfter: how far your head moves before it follows (metres); Armor: which armour is drawn
+    (None, Limbs = arms and legs only, All); Backpack: draw the backpack (off by default: it blocks the view).
   - [BuildingRotation]: how much the hand twist turns a building (0 = off), whether only while the rotate button
     is held, and whether the building keeps facing you as you turn.
   The other fixes are always on.

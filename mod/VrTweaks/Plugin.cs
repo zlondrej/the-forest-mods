@@ -34,6 +34,7 @@ namespace VrTweaks
             ApplyVrOnly("VrKeyboard", () => VrKeyboardPatch.Apply(harmony));
             ApplyVrOnly("Handedness", () => HandednessPatch.Apply(harmony));
             ApplyVrOnly("SpineFollowsNeck", () => SpinePatch.Apply(harmony));
+            ApplyVrOnly("BodyPlacement", () => BodyPlacement.Apply(harmony));
             ApplyVrOnly("BuildingRotation", () => BuildingRotationPatch.Apply(harmony));
 
             Log.LogInfo(_airHud ? "UnderwaterAirBar: applied" : "UnderwaterAirBar: disabled in config");
@@ -61,7 +62,7 @@ namespace VrTweaks
         private ConfigEntry<PlayerBody.ArmorShown> _bodyArmor;
         private ConfigEntry<bool> _bodyBackpack;
         private ConfigEntry<bool> _bodyVisible, _airHudEnabled, _airHudBlurred, _onlyWhileRotateHeld, _followView;
-        private ConfigEntry<float> _bodyBack, _sprintThreshold, _twistRatio;
+        private ConfigEntry<float> _bodyBack, _bodyBackAhead, _watchOffset, _watchSide, _lookDownFrom, _lookDownOver, _bodyTurn, _bodyTurnDown, _bodyFollow, _sprintThreshold, _twistRatio;
         private ConfigEntry<float> _airDistance, _airHeight, _airSize;
         private readonly Dictionary<ImmersiveCamera.Case, ConfigEntry<bool>> _immersive = new Dictionary<ImmersiveCamera.Case, ConfigEntry<bool>>();
         private ConfigEntry<float> _rotationSmoothing, _positionSmoothing, _rotationSpeedup, _positionSpeedup, _maxPositionLag, _maxRotationLag;
@@ -71,11 +72,27 @@ namespace VrTweaks
             _bodyVisible = Config.Bind("PlayerBody", "Visible", PlayerBody.Visible,
                 "Draw your body in VR (torso and legs, clothes and armour; not the head, nor the bare arms: the VR hands are drawn instead). Vanilla VR only draws its shadow.");
             _bodyArmor = Config.Bind("PlayerBody", "Armor", PlayerBody.Armor,
-                "Which armour is drawn on your body: None, Limbs (arms and legs only: chest and shoulder pieces block the view looking down) or All. Armour not drawn still casts its shadow.");
+                "Which armour is drawn on your body: None, Limbs (arms and legs only: chest and shoulder pieces block the view looking down) or All. Armour not drawn casts no shadow either.");
             _bodyBackpack = Config.Bind("PlayerBody", "Backpack", PlayerBody.Backpack,
                 "Draw the backpack on your body (it blocks the view looking down). Not drawn, it still casts its shadow.");
-            _bodyBack = Config.Bind("PlayerBody", "BackOffset", PlayerBody.BackOffset,
-                "Fine-tuning: metres your body sits further back behind your eyes than worked out (it stands upright with its head under yours; negative = forward).");
+            _bodyBackAhead = Config.Bind("PlayerBody", "BackOffsetLookingAhead", PlayerBody.BackOffsetAhead,
+                "Metres your body sits back behind your eyes while you look ahead or up (negative = forward). BackOffsetLookingDown takes over as you look down (LookingDownFrom, LookingDownOver).");
+            _bodyBack = Config.Bind("PlayerBody", "BackOffsetLookingDown", PlayerBody.BackOffset,
+                "Metres your body sits back behind your eyes while you look down, so the chest isn't in front of them (taking over from BackOffsetLookingAhead as you look down: see LookingDownFrom; negative = forward).");
+            _watchOffset = Config.Bind("PlayerBody", "WatchOffset", PlayerBody.WatchOffset,
+                "Metres the watch sits further along your forearm, towards the fingertips (negative = towards the elbow).");
+            _watchSide = Config.Bind("PlayerBody", "WatchSide", PlayerBody.WatchSide,
+                "Metres the watch is moved sideways across your wrist, to centre it (its angle stays; try 0.01 or -0.01 to find the direction).");
+            _lookDownFrom = Config.Bind("PlayerBody", "LookingDownFrom", BodyPlacement.LookDownFrom,
+                "Degrees below the horizon where looking down starts: the ...LookingDown settings start to take over from the ...LookingAhead ones (BackOffset) and from TurnAfter.");
+            _lookDownOver = Config.Bind("PlayerBody", "LookingDownOver", BodyPlacement.LookDownOver,
+                "Over how many more degrees down they take over fully (smoothly; 0 = at once).");
+            _bodyTurn = Config.Bind("PlayerBody", "TurnAfter", BodyPlacement.TurnSlack,
+                "Degrees you can turn your head before your body turns along (vanilla: 105).");
+            _bodyTurnDown = Config.Bind("PlayerBody", "TurnAfterLookingDown", BodyPlacement.TurnSlackLookingDown,
+                "The same while you look down at your body (taking over as you look down: LookingDownFrom, LookingDownOver), so it stays put while you look it over.");
+            _bodyFollow = Config.Bind("PlayerBody", "FollowAfter", BodyPlacement.FollowSlack,
+                "Metres your head can move away from above your body before the body follows (within it, the body leans towards you; vanilla: 0.4).");
 
             _sprintThreshold = Config.Bind("Movement", "SprintThreshold", SprintThresholdPatch.Vanilla,
                 "VR auto-run: you sprint while the movement stick is pushed past this part of its range (0.85 = vanilla). Lower: sprint without pushing all the way (sticks that don't reach the edge, especially diagonally). Higher: walk with the stick further out.");
@@ -140,6 +157,14 @@ namespace VrTweaks
             PlayerBody.Armor = _bodyArmor.Value;
             PlayerBody.Backpack = _bodyBackpack.Value;
             PlayerBody.BackOffset = _bodyBack.Value;
+            PlayerBody.BackOffsetAhead = _bodyBackAhead.Value;
+            PlayerBody.WatchOffset = Mathf.Clamp(_watchOffset.Value, -0.2f, 0.2f);
+            PlayerBody.WatchSide = Mathf.Clamp(_watchSide.Value, -0.1f, 0.1f);
+            BodyPlacement.TurnSlack = Mathf.Clamp(_bodyTurn.Value, 0f, 180f);
+            BodyPlacement.LookDownFrom = Mathf.Clamp(_lookDownFrom.Value, -90f, 90f);
+            BodyPlacement.LookDownOver = Mathf.Clamp(_lookDownOver.Value, 0f, 180f);
+            BodyPlacement.TurnSlackLookingDown = Mathf.Clamp(_bodyTurnDown.Value, 0f, 180f);
+            BodyPlacement.FollowSlack = Mathf.Max(0f, _bodyFollow.Value);
             SprintThresholdPatch.Threshold = Mathf.Clamp(_sprintThreshold.Value, 0.1f, 1f);
             BuildingRotationPatch.Ratio = _twistRatio.Value;
             BuildingRotationPatch.OnlyWhileRotateHeld = _onlyWhileRotateHeld.Value;
@@ -210,7 +235,7 @@ namespace VrTweaks
             }
             if (_playerBody)
             {
-                try { PlayerBody.UpdateOffset(); }
+                try { PlayerBody.UpdateArms(); }
                 catch (Exception e) { Log.LogError($"PlayerBody: {e}"); _playerBody = false; }
             }
             try { BuildingRotationPatch.UpdateSign(); }
