@@ -96,6 +96,13 @@ namespace VrTweaks
             if (!ForestVR.Enabled) return;
             var left = _leftIk.GetValue(__instance) as InverseKinematics;
             var right = _rightIk.GetValue(__instance) as InverseKinematics;
+            if (__instance.useGhostMode)
+            {
+                // Scenes: the game doesn't pose the arms (the animation does), so what was done to them last stays
+                // (a stretched forearm reached for the sky while being dragged): undone, once.
+                Unpose(left);
+                Unpose(right);
+            }
             var leftHand = (_leftHand.GetValue(__instance) as Component)?.transform;
             var rightHand = (_rightHand.GetValue(__instance) as Component)?.transform;
             if (!left || !right || !leftHand || !rightHand) return;
@@ -284,6 +291,7 @@ namespace VrTweaks
             public Quaternion[] TwistRotations;
             public float[] TwistAlong;
             public float Twist; // the wrist's twist last frame, smoothed (degrees, around the forearm)
+            public bool Posed; // stretched / twisted / the watch placed since the last restore
             public Transform Watch;
             public Vector3 WatchPosition, WatchFromTwistPosition;
             public Quaternion WatchRotation, WatchFromTwistRotation;
@@ -296,6 +304,15 @@ namespace VrTweaks
 
         /// <summary>The watch: carried by the forearm, its angle halfway between the forearm's and the hand's.</summary>
         private const float WatchFollowsHand = 0.5f;
+
+        private static void Unpose(InverseKinematics arm)
+        {
+            if (arm && Rests.TryGetValue(arm, out var rest) && rest.Posed)
+            {
+                RestoreStretch(arm);
+                rest.Posed = false;
+            }
+        }
 
         /// <summary>Before posing: the arm's bones back as the rig has them (the stretch and twist are redone each frame).</summary>
         private static void RestoreStretch(InverseKinematics arm)
@@ -383,6 +400,7 @@ namespace VrTweaks
             var arm = __instance;
             if (!arm.upperArm || !arm.forearm || !arm.hand || !arm.target || !Rests.TryGetValue(arm, out var rest)) return;
 
+            rest.Posed = true;
             var toTarget = arm.target.position - arm.upperArm.position;
             float excess = toTarget.magnitude - (rest.UpperLength + rest.ForearmLength);
             if (excess > 0.001f)
@@ -421,7 +439,9 @@ namespace VrTweaks
             }
             rest.Twist = Mathf.Lerp(rest.Twist, twist, 0.2f);
 
-            if (rest.Watch && rest.Watch.parent == arm.hand)
+            // Only with the body's own hands drawn (PlayerBody.UpdateArms): on the VR hands mesh, the watch stays as
+            // the game puts it.
+            if (rest.Watch && rest.Watch.parent == arm.hand && PlayerBody.BodyHandsShown)
             {
                 var reference = n > 0 && rest.Twists[n - 1] ? rest.Twists[n - 1] : arm.forearm;
                 var fromForearm = reference.rotation * rest.WatchFromTwistRotation;

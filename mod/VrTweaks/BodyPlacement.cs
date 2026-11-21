@@ -30,7 +30,7 @@ namespace VrTweaks
         public static float TurnSlackLookingDown = 15f;
 
         /// <summary>Degrees below the horizon where looking down starts to count, and over how many more it is all in.</summary>
-        public static float LookDownFrom = 10f, LookDownOver = 50f;
+        public static float LookDownFrom = 20f, LookDownOver = 15f;
 
         /// <summary>Metres your head may move from above the body before the body follows (leaning within it).</summary>
         public static float FollowSlack = 0.08f;

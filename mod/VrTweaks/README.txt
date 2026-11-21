@@ -30,8 +30,8 @@ WHAT IT DOES
   - Throwing (spear, molotov, bombs, rocks, balls) only throws when you release the throw trigger. Vanilla also
     threw when you pressed it while your hand was moving, e.g. backwards while winding up.
   - Ropes: sprint + stick down starts the fast slide, as in flat-screen (vanilla VR almost never started it).
-  - Your body is drawn (torso and legs, with clothes and the armour on arms and legs; not the head, the bare arms
-    (the VR hands are drawn there) or the backpack). Vanilla VR only draws its shadow. It stands upright with its
+  - Your body is drawn (torso and legs, with clothes, armour and backpack; not the head), with the outfit's own
+    arms and hands instead of the VR hands. Vanilla VR only draws its shadow. It stands upright with its
     head under yours (vanilla leaned it forward, more so when you looked down); leaning in your room still leans it.
   - Handedness: the bow (crossbow, slingshot) follows only the "right handed bow" option; vanilla also put it in the
     left hand with left-handed weapons. The quick-select backpack always opens in the left hand (the held weapon
@@ -59,7 +59,7 @@ SETTINGS
     TurnAfterLookingDown: how far you turn your head before it turns along (degrees); LookingDownFrom,
     LookingDownOver: from how far down (degrees) the "looking down" values take over, and over how many more
     degrees; FollowAfter: how far your head moves before it follows (metres); Armor: which armour is drawn
-    (None, Limbs = arms and legs only, All); Backpack: draw the backpack (off by default: it blocks the view).
+    (None, Limbs = arms and legs only, All); Backpack: draw the backpack.
   - [BuildingRotation]: how much the hand twist turns a building (0 = off), whether only while the rotate button
     is held, and whether the building keeps facing you as you turn.
   The other fixes are always on.

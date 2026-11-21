@@ -79,7 +79,7 @@ namespace VrTweaks
                 "Metres your body sits back behind your eyes while you look ahead or up (negative = forward). BackOffsetLookingDown takes over as you look down (LookingDownFrom, LookingDownOver).");
             _bodyBack = Config.Bind("PlayerBody", "BackOffsetLookingDown", PlayerBody.BackOffset,
                 "Metres your body sits back behind your eyes while you look down, so the chest isn't in front of them (taking over from BackOffsetLookingAhead as you look down: see LookingDownFrom; negative = forward).");
-            _watchOffset = Config.Bind("PlayerBody", "WatchOffset", PlayerBody.WatchOffset,
+            _watchOffset = Config.Bind("PlayerBody", "WatchForward", PlayerBody.WatchOffset,
                 "Metres the watch sits further along your forearm, towards the fingertips (negative = towards the elbow).");
             _watchSide = Config.Bind("PlayerBody", "WatchSide", PlayerBody.WatchSide,
                 "Metres the watch is moved sideways across your wrist, to centre it (its angle stays; try 0.01 or -0.01 to find the direction).");

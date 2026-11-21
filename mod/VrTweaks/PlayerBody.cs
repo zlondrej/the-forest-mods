@@ -22,10 +22,10 @@ namespace VrTweaks
         public static bool Visible = true;
 
         /// <summary>Which armour is drawn: none, only on arms and legs, or all (chest, shoulders and body too).</summary>
-        public static ArmorShown Armor = ArmorShown.Limbs;
+        public static ArmorShown Armor = ArmorShown.All;
 
         /// <summary>Draw the backpack.</summary>
-        public static bool Backpack = false;
+        public static bool Backpack = true;
 
         /// <summary>Metres the body moves back behind your eyes when you look down (negative = forward); see BodyPlacement.</summary>
         public static float BackOffset = 0.5f;
@@ -34,7 +34,10 @@ namespace VrTweaks
         public static float WatchOffset = 0.03f;
 
         /// <summary>Metres the watch is moved sideways across the wrist (its angle unchanged).</summary>
-        public static float WatchSide = 0.02f;
+        public static float WatchSide = 0.017f;
+
+        /// <summary>The body's own arms or hands are drawn (not the VR hands): the watch is placed on them.</summary>
+        public static bool BodyHandsShown => _drawnArms;
 
         /// <summary>The same looking ahead or up (BackOffset is blended in as you look down).</summary>
         public static float BackOffsetAhead = 0.1f;
@@ -63,7 +66,7 @@ namespace VrTweaks
         /// </summary>
         public static void Tick()
         {
-            if (!ForestVR.Enabled) return;
+            if (!ForestVR.Enabled || BodyView.Shown) return; // in a first-person scene: the scene's body view first
             int settings = (int)Armor * 2 + (Backpack ? 1 : 0);
             if (!Visible || settings != _drawnWith)
             {
@@ -145,16 +148,18 @@ namespace VrTweaks
         // on its own layer. The watch is its own object on the left hand bone, drawn either way.
         private static VRPlayerAdapter _armsAdapter;
         private static Renderer _justHands, _drawnArms;
+        private static bool _armsSwitchedOn; // the bare arms switched back on here (see UpdateArms)
 
         /// <summary>Every frame.</summary>
         public static void UpdateArms()
         {
-            if (!ForestVR.Enabled) return;
+            if (!ForestVR.Enabled || BodyView.Shown) return; // the scene's body view has the arms meanwhile
             var adapter = LocalPlayer.vrAdapter;
             if (adapter != _armsAdapter)
             {
                 _armsAdapter = adapter;
                 _drawnArms = null; // a new player: as the game set it up
+                _armsSwitchedOn = false;
                 _justHands = adapter ? FindRenderer(adapter, "char_arms_JustHands_GEO") : null;
             }
             if (!adapter || !adapter.VRPlayerHands) return;
@@ -164,8 +169,22 @@ namespace VrTweaks
             if (Visible && _done && hands.gameObject.activeInHierarchy && vr && !vr.useGhostMode && LocalPlayer.Inventory
                 && LocalPlayer.Inventory.CurrentView == TheForest.Items.Inventory.PlayerInventory.PlayerViews.World)
             {
-                if (adapter.defaultPlayerArms && adapter.defaultPlayerArms.gameObject.activeInHierarchy) worn = adapter.defaultPlayerArms;
+                var arms = adapter.defaultPlayerArms;
+                if (arms && _justHands && !arms.gameObject.activeSelf && !_justHands.gameObject.activeSelf
+                    && arms.transform.parent && arms.transform.parent.gameObject.activeInHierarchy)
+                {
+                    // Neither switched on: the outfit chose the bare arms (it switches one or the other on), and VR's
+                    // setup switched them off afterwards (VRPlayerAdapter.ConvertToVR). Back on, while drawn here.
+                    arms.gameObject.SetActive(true);
+                    _armsSwitchedOn = true;
+                }
+                if (arms && arms.gameObject.activeInHierarchy) worn = arms;
                 else if (_justHands && _justHands.gameObject.activeInHierarchy) worn = _justHands;
+            }
+            if (!worn && _armsSwitchedOn && adapter.defaultPlayerArms)
+            {
+                adapter.defaultPlayerArms.gameObject.SetActive(false); // as VR's setup had them
+                _armsSwitchedOn = false;
             }
             if (worn == _drawnArms) return;
             if (_drawnArms) _drawnArms.shadowCastingMode = ShadowCastingMode.ShadowsOnly;

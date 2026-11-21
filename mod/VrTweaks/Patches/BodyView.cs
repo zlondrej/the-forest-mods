@@ -15,7 +15,7 @@ namespace VrTweaks
     internal static class BodyView
     {
         private static readonly List<KeyValuePair<Renderer, ShadowCastingMode>> Changed = new List<KeyValuePair<Renderer, ShadowCastingMode>>();
-        private static bool _shown, _armsWereActive, _handsWereActive;
+        private static bool _shown, _armsActivated, _handsWereEnabled;
 
         public static bool Shown => _shown;
 
@@ -36,12 +36,19 @@ namespace VrTweaks
                     r.shadowCastingMode = ShadowCastingMode.On;
                 }
             }
+            // The arms: the outfit's own (bare arms or just hands, drawn by the loop above) instead of the VR hands,
+            // which are only hidden from view (their object's active state is the game's: cutscenes switch it, and
+            // putting an old one back undid them). Only if the outfit has neither switched on are the bare arms.
             if (adapter.defaultPlayerArms && adapter.VRPlayerHands)
             {
-                _armsWereActive = adapter.defaultPlayerArms.gameObject.activeSelf;
-                _handsWereActive = adapter.VRPlayerHands.gameObject.activeSelf;
-                adapter.defaultPlayerArms.gameObject.SetActive(true);
-                adapter.VRPlayerHands.gameObject.SetActive(false);
+                _handsWereEnabled = adapter.VRPlayerHands.enabled;
+                adapter.VRPlayerHands.enabled = false;
+                _armsActivated = !adapter.defaultPlayerArms.gameObject.activeSelf && !OutfitHandsActive(adapter);
+                if (_armsActivated)
+                {
+                    adapter.defaultPlayerArms.gameObject.SetActive(true);
+                    adapter.defaultPlayerArms.shadowCastingMode = ShadowCastingMode.On;
+                }
             }
             _shown = true;
         }
@@ -73,10 +80,27 @@ namespace VrTweaks
             var adapter = LocalPlayer.vrAdapter;
             if (adapter && adapter.defaultPlayerArms && adapter.VRPlayerHands)
             {
-                adapter.defaultPlayerArms.gameObject.SetActive(_armsWereActive);
-                adapter.VRPlayerHands.gameObject.SetActive(_handsWereActive);
+                adapter.VRPlayerHands.enabled = _handsWereEnabled;
+                if (_armsActivated)
+                {
+                    adapter.defaultPlayerArms.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+                    adapter.defaultPlayerArms.gameObject.SetActive(false);
+                }
             }
+            _armsActivated = false;
             _shown = false;
+        }
+
+        /// <summary>The outfit's "just hands" mesh (long sleeves) is switched on.</summary>
+        private static bool OutfitHandsActive(VRPlayerAdapter adapter)
+        {
+            foreach (var go in adapter.PlayerMeshesToDisable)
+            {
+                if (!go) continue;
+                foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+                    if (r && r.name == "char_arms_JustHands_GEO") return r.gameObject.activeInHierarchy;
+            }
+            return false;
         }
     }
 }
