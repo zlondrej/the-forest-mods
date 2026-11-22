@@ -22,6 +22,12 @@ namespace VrTweaks
 
         public static bool Visible = true;
 
+        /// <summary>
+        /// The body is drawn now: <see cref="Visible"/>, except while flying the hang glider (it hangs from the body in
+        /// ways not worked out yet: vanilla VR's VR hands and shadow meanwhile).
+        /// </summary>
+        public static bool Drawn => Visible && !(LocalPlayer.AnimControl && LocalPlayer.AnimControl.flyingGlider);
+
         /// <summary>Which armour is drawn: none, only on arms and legs, or all (chest, shoulders and body too).</summary>
         public static ArmorShown Armor = ArmorShown.All;
 
@@ -69,10 +75,10 @@ namespace VrTweaks
         {
             if (!ForestVR.Enabled || BodyView.Shown) return; // in a first-person scene: the scene's body view first
             int settings = (int)Armor * 2 + (Backpack ? 1 : 0);
-            if (!Visible || settings != _drawnWith)
+            if (!Drawn || settings != _drawnWith)
             {
                 Hide(); // drawn again below with the new settings
-                if (!Visible) return;
+                if (!Drawn) return;
             }
             var adapter = LocalPlayer.vrAdapter;
             if (!adapter || adapter == _done || adapter.PlayerMeshesToDisable == null) return;
@@ -158,7 +164,7 @@ namespace VrTweaks
             if (!ForestVR.Enabled) return;
             UpdateHead(LocalPlayer.vrAdapter);
             var body = LocalPlayer.vrAdapter;
-            InnerTorso.Update(body, body && (BodyView.Shown || (Visible && body == _done)), BodyLayer());
+            InnerTorso.Update(body, body && (BodyView.Shown || (Drawn && body == _done)), BodyLayer());
             if (BodyView.Shown) return; // the scene's body view has the arms meanwhile
             var adapter = LocalPlayer.vrAdapter;
             if (adapter != _armsAdapter)
@@ -172,7 +178,7 @@ namespace VrTweaks
             var hands = adapter.VRPlayerHands;
             var vr = LocalPlayer.vrPlayerControl;
             Renderer worn = null;
-            if (Visible && _done && hands.gameObject.activeInHierarchy && vr && !vr.useGhostMode && LocalPlayer.Inventory
+            if (Drawn && _done && hands.gameObject.activeInHierarchy && vr && !vr.useGhostMode && LocalPlayer.Inventory
                 && LocalPlayer.Inventory.CurrentView == TheForest.Items.Inventory.PlayerInventory.PlayerViews.World)
             {
                 var arms = adapter.defaultPlayerArms;
@@ -200,8 +206,9 @@ namespace VrTweaks
         }
 
         // The head. VR leaves its meshes on the "Camera" layer, which the eye camera doesn't draw, and casting only a
-        // shadow. Knocked down with the view left at your headset (ImmersiveCamera.AnimatedKnockdown), the body is
-        // thrown away from your eyes: once its head is far enough not to be seen from inside, the head meshes are put
+        // shadow. Knocked down with the view left at your headset, or riding the turtle shell (ImmersiveCamera.
+        // AnimatedBody), the body moves away from your eyes (thrown back; crouched on the shell while you stand): once
+        // its head is far enough not to be seen from inside, the head meshes are put
         // on the layer the body is drawn on and drawn (as the theatre shows them), and put back when it comes back.
         private const float HeadShownFrom = 0.3f, HeadHiddenWithin = 0.25f; // metres from your eyes
         private static readonly Dictionary<Renderer, KeyValuePair<int, ShadowCastingMode>> HeadChanged =
@@ -213,7 +220,7 @@ namespace VrTweaks
             bool show = false;
             var vr = LocalPlayer.vrPlayerControl;
             var setup = LocalPlayer.ScriptSetup;
-            if (adapter && adapter == _done && !BodyView.Shown && ImmersiveCamera.AnimatedKnockdown && vr && vr.VRCamera
+            if (adapter && adapter == _done && !BodyView.Shown && ImmersiveCamera.AnimatedBody && vr && vr.VRCamera
                 && setup && setup.headJnt)
             {
                 float distance = Vector3.Distance(setup.headJnt.position, vr.VRCamera.position);

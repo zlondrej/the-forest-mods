@@ -6,7 +6,7 @@
 |---|---|---|
 | [Arrow Fixes](mod/ArrowFixes/README.txt) | flat-screen and VR | Bone, modern, flaming and poisoned arrows keep their type when crafted, picked up, stored in the arrow basket and fired, also in multiplayer. Switching arrow type cycles through every combination and shows an icon of the selected type. |
 | [Meat Badges](mod/MeatBadges/README.txt) | flat-screen and VR | An "L" or "S" badge tells meat and small meat apart in the fire, drying rack and stew pot. |
-| [VR Tweaks](mod/VrTweaks/README.txt) | VR only | Scripted scenes in first person instead of the theatre screen. Your body drawn upright under your head, with the outfit's arms and hands. Arms that follow their own controller with left-handed weapons. Building placement by twisting your hand. Fixes for auto-run, ropes, throwing, the underwater air bar, the pause menu and the VR keyboard. |
+| [VR Tweaks](mod/VrTweaks/README.txt) | VR only | Scripted scenes in first person instead of the theatre screen. Your body drawn upright under your head, with the outfit's arms and hands, thrown back by explosions and riding the turtle shell as animated. Arms that follow their own controller with left-handed weapons. Building placement by twisting your hand. Fixes for auto-run, ropes, throwing, the underwater air bar, the pause menu and the VR keyboard. |
 
 Each mod's README lists everything it changes and its settings.
 

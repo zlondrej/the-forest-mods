@@ -53,5 +53,6 @@ InverseKinematics::Solve
 VRPlayerControl::LateUpdate
 ?PlayerPreferences::VRForwardMovement
 playerAnimatorControl::FixedUpdate
+invertRotateConstrain::FixedUpdate
 ?playerAnimatorControl::modLocalVel
 playerHitReactions::enableExplodeCamera

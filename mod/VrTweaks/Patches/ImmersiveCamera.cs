@@ -21,7 +21,7 @@ namespace VrTweaks
     /// stretched up to the controllers). As a first-person case, ghost mode is switched on for it here, so it plays as
     /// the other scenes do. Otherwise the view stays with the headset as in vanilla, but with the body drawn its arms
     /// play the animation, it stays where it stood, and its head is drawn once thrown clear of your eyes
-    /// (<see cref="AnimatedKnockdown"/>).
+    /// (<see cref="AnimatedBody"/>).
     /// </summary>
     internal static class ImmersiveCamera
     {
@@ -176,17 +176,19 @@ namespace VrTweaks
         }
 
         /// <summary>
-        /// Knocked down outside ghost mode (the case set to vanilla's view) with the body drawn: the view stays with the
-        /// headset, but the arms play the animation instead of reaching for the controllers (HandednessPatch), and the
-        /// body stays where it stood instead of following your head (BodyPlacement), its head drawn once clear of your
-        /// eyes (PlayerBody). Body not drawn: all as vanilla.
+        /// Knocked down outside ghost mode (the case set to vanilla's view), or riding the turtle shell, with the body
+        /// drawn: the view stays with the headset, but the arms play the animation instead of reaching for the
+        /// controllers (HandednessPatch), and the body stays where it stood instead of following your head
+        /// (BodyPlacement), its head drawn once clear of your eyes (PlayerBody). Body not drawn: all as vanilla.
         /// </summary>
-        public static bool AnimatedKnockdown
+        public static bool AnimatedBody
         {
             get
             {
                 var vr = LocalPlayer.vrPlayerControl;
-                return PlayerBody.Visible && KnockedDown(vr) && !vr.useGhostMode;
+                if (!PlayerBody.Drawn || !vr || vr.useGhostMode || LocalPlayer.vrPlayerControl != vr) return false;
+                var anim = LocalPlayer.AnimControl;
+                return KnockedDown(vr) || (anim && anim.doShellRideMode);
             }
         }
 

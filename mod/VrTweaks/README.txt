@@ -35,7 +35,10 @@ WHAT IT DOES
     body), with the outfit's own arms and hands instead of the VR hands. Vanilla VR only draws its shadow. It stands
     upright with its head under yours (vanilla leaned it forward, more so when you looked down); leaning in your
     room still leans it. Knocked down by an explosion, you see it through the character's eyes as it is thrown back
-    and gets up (vanilla kept the view and the arms at your headset and controllers, away from the body).
+    and gets up (vanilla kept the view and the arms at your headset and controllers, away from the body). Riding the
+    turtle shell, it sits on the shell as the animation has it, arms included, with its head drawn below you
+    (instead of reaching up for your controllers). Pulling a sled, it stays as the game has it (turning it with you
+    turned the sled). Flying the hang glider, it isn't drawn (VR hands and shadow, as vanilla).
   - Handedness: the bow (crossbow, slingshot) follows only the "right handed bow" option; vanilla also put it in the
     left hand with left-handed weapons. The quick-select backpack always opens in the left hand (the held weapon
     moves to the right hand meanwhile). With the hands mirrored (bow in the left hand, or left-handed weapons), the

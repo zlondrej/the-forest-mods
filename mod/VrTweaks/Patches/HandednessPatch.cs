@@ -91,24 +91,24 @@ namespace VrTweaks
         private static bool _measured;
 
         /// <summary>
-        /// Before the arms are solved: while mirrored, each arm reaches for the controller on its side. Knocked down with
-        /// the body drawn and the view left with the headset (ImmersiveCamera.AnimatedKnockdown), the arms aren't solved:
-        /// the animation moves them, as in scenes, holding what they hold.
+        /// Before the arms are solved: while mirrored, each arm reaches for the controller on its side. Knocked down or
+        /// riding the turtle shell, with the body drawn and the view left with the headset (ImmersiveCamera.AnimatedBody),
+        /// the arms aren't solved: the animation moves them, as in scenes, holding what they hold.
         /// </summary>
         private static bool IkSolvePrefix(VRPlayerControl __instance)
         {
             if (!ForestVR.Enabled) return true;
             var left = _leftIk.GetValue(__instance) as InverseKinematics;
             var right = _rightIk.GetValue(__instance) as InverseKinematics;
-            bool knockdown = ImmersiveCamera.AnimatedKnockdown;
-            if (__instance.useGhostMode || knockdown)
+            bool animated = ImmersiveCamera.AnimatedBody;
+            if (__instance.useGhostMode || animated)
             {
                 // Scenes: the game doesn't pose the arms (the animation does), so what was done to them last stays
                 // (a stretched forearm reached for the sky while being dragged): undone, once.
                 Unpose(left);
                 Unpose(right);
             }
-            if (knockdown)
+            if (animated)
             {
                 // The arms' own mirroring undone and what they hold back on the hands, as unmirrored.
                 if (__instance.RightHandedActive) UnmirrorArms(__instance);

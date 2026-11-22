@@ -19,8 +19,11 @@ namespace VrTweaks
     /// - moved back by <see cref="PlayerBody.BackOffset"/> as you look down (<see cref="PlayerBody.BackOffsetAhead"/>
     ///   looking ahead or up), so the chest
     ///   isn't in front of your eyes.
-    /// Knocked down (with the view left with the headset), it stays where it stood: the animation throws it from there.
-    /// Not in scenes (the theatre or the immersive camera take the skeleton), nor with the body not drawn.
+    /// Knocked down (with the view left with the headset) or riding the turtle shell, it stays where it stood: the
+    /// animation throws it from there, or sits it on the shell.
+    /// Between frames it stays placed (ConstrainPostfix), so what is held is where it is drawn when the game checks it.
+    /// Not in scenes (the theatre or the immersive camera take the skeleton), nor pulling a sled (it hangs from the
+    /// skeleton), nor with the body not drawn.
     /// </summary>
     internal static class BodyPlacement
     {
@@ -65,7 +68,29 @@ namespace VrTweaks
                 harmony.Patch(fixedUpdate, postfix: new HarmonyMethod(typeof(BodyPlacement), nameof(StepsPostfix)));
             }
             else Plugin.Log.LogWarning("BodyPlacement: the room-scale steps weren't found, the body slides without stepping");
+            var constrain = AccessTools.Method(typeof(invertRotateConstrain), "FixedUpdate");
+            if (constrain != null)
+                harmony.Patch(constrain, postfix: new HarmonyMethod(typeof(BodyPlacement), nameof(ConstrainPostfix)));
+            else Plugin.Log.LogWarning("BodyPlacement: the skeleton's turn constraint wasn't found, pointing may miss what's under the finger");
             return true;
+        }
+
+        private static Vector3 _placedLocalPosition;
+        private static Quaternion _placedLocalRotation;
+
+        /// <summary>
+        /// The game turns the skeleton back as it has it in every physics step (invertRotateConstrain.FixedUpdate),
+        /// which come before the next frame's Update: what checks the body's things then (the survival book's tabs
+        /// under your pointing finger: CameraMouseEvents) saw them turned away from where they were drawn (a tab to the
+        /// side lit up). Placed back as drawn; LateUpdate places it anew.
+        /// </summary>
+        private static void ConstrainPostfix(invertRotateConstrain __instance)
+        {
+            if (!ForestVR.Enabled || !_placed) return;
+            var joints = LocalPlayer.vrAdapter ? LocalPlayer.vrAdapter.JointsOffsetTransform : null;
+            if (!joints || __instance.transform != joints) return;
+            joints.localPosition = _placedLocalPosition;
+            joints.localRotation = _placedLocalRotation;
         }
 
         /// <summary>
@@ -129,8 +154,8 @@ namespace VrTweaks
                 _vr = vr;
                 _placed = false;
             }
-            bool applies = PlayerBody.Visible && joints && root && head && spine && vr.VROffsetTransform
-                           && joints.parent == vr.VROffsetTransform && !InScene(vr);
+            bool applies = PlayerBody.Drawn && joints && root && head && spine && vr.VROffsetTransform
+                           && joints.parent == vr.VROffsetTransform && !InScene(vr) && !OnSled();
             if (!applies)
             {
                 if (_placed && joints && joints.parent == vr.VROffsetTransform) joints.localPosition = Vector3.zero;
@@ -147,7 +172,7 @@ namespace VrTweaks
             var spineAtBase = spine.position;
 
             float dt = Mathf.Max(Time.deltaTime, 1e-4f);
-            bool hold = ImmersiveCamera.AnimatedKnockdown; // stays where it stood
+            bool hold = ImmersiveCamera.AnimatedBody; // stays where it stood
             float headYaw = Yaw(head);
             var eyes = LevelEyes(head);
             if (!_placed)
@@ -201,6 +226,8 @@ namespace VrTweaks
             var position = pivot + rotation * (joints.position - pivot);
             position += Flat(root.position + _spineFromRoot - pivot);
             joints.SetPositionAndRotation(position, rotation * baseRotation);
+            _placedLocalPosition = joints.localPosition;
+            _placedLocalRotation = joints.localRotation;
         }
 
         /// <summary>The skeleton's local rotation as invertRotateConstrain sets it (in FixedUpdate, so not every frame).</summary>
@@ -225,6 +252,17 @@ namespace VrTweaks
         private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
 
         private static float Smooth01(float t) => t * t * (3f - 2f * t);
+
+        /// <summary>
+        /// Pulling a sled: it hangs from the skeleton (PlayerPushSledAction: under the sled hinge's parent), so turning
+        /// the body with your head turned the sled, which then dragged back. The skeleton stays as the game has it.
+        /// </summary>
+        private static bool OnSled()
+        {
+            var fps = LocalPlayer.FpCharacter;
+            var anim = LocalPlayer.AnimControl;
+            return (fps && fps.PushingSled) || (anim && anim.doSledPushMode);
+        }
 
         /// <summary>Scenes (theatre mode or immersive camera) and the plane crash: the skeleton is theirs.</summary>
         private static bool InScene(VRPlayerControl vr)

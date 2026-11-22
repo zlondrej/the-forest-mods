@@ -11,7 +11,7 @@ using UnityEngine;
 namespace VrTweaks
 {
     /// <summary>Fixes for The Forest VR (TheForestVR.exe). Every patch checks ForestVR.Enabled, so flat-screen is unaffected.</summary>
-    [BepInPlugin(Guid, "VR Tweaks", "1.0.0")]
+    [BepInPlugin(Guid, "VR Tweaks", "1.1.0")]
     public class Plugin : BaseUnityPlugin
     {
         public const string Guid = "forestmods.vrtweaks";
