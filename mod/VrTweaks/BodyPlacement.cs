@@ -19,6 +19,7 @@ namespace VrTweaks
     /// - moved back by <see cref="PlayerBody.BackOffset"/> as you look down (<see cref="PlayerBody.BackOffsetAhead"/>
     ///   looking ahead or up), so the chest
     ///   isn't in front of your eyes.
+    /// Knocked down (with the view left with the headset), it stays where it stood: the animation throws it from there.
     /// Not in scenes (the theatre or the immersive camera take the skeleton), nor with the body not drawn.
     /// </summary>
     internal static class BodyPlacement
@@ -108,6 +109,8 @@ namespace VrTweaks
         private static void Prefix(VRPlayerControl __instance)
         {
             if (!ForestVR.Enabled) return;
+            try { CrouchBlend.Measure(); }
+            catch (System.Exception e) { Plugin.Log.LogError($"CrouchBlend: {e}"); }
             try { Place(__instance); }
             catch (System.Exception e)
             {
@@ -146,6 +149,7 @@ namespace VrTweaks
             var spineAtBase = spine.position;
 
             float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+            bool hold = ImmersiveCamera.AnimatedKnockdown; // stays where it stood
             float headYaw = Yaw(head);
             var eyes = LevelEyes(head);
             if (!_placed)
@@ -161,14 +165,14 @@ namespace VrTweaks
             // Looking down: the body moves back from BackOffsetAhead to BackOffset, and turns later.
             float pitch = -Mathf.Asin(Mathf.Clamp(head.forward.y, -1f, 1f)) * Mathf.Rad2Deg; // positive = down
             float lookDownGoal = LookDownOver > 0.01f ? Mathf.Clamp01((pitch - LookDownFrom) / LookDownOver) : (pitch >= LookDownFrom ? 1f : 0f);
-            _lookDown = Mathf.Lerp(_lookDown, lookDownGoal, 1f - Mathf.Exp(-dt / LookDownTime));
+            if (!hold) _lookDown = Mathf.Lerp(_lookDown, lookDownGoal, 1f - Mathf.Exp(-dt / LookDownTime));
 
             // Turn: the game turns the player (and the skeleton with it) in steps; keep the body where it was.
             _yaw -= Mathf.DeltaAngle(_lastBaseYaw, baseYaw);
             _lastBaseYaw = baseYaw;
             float slack = Mathf.Lerp(TurnSlack, Mathf.Max(TurnSlack, TurnSlackLookingDown), Smooth01(_lookDown));
             float off = Mathf.DeltaAngle(_yaw, Mathf.DeltaAngle(baseYaw, headYaw));
-            if (Mathf.Abs(off) > slack)
+            if (!hold && Mathf.Abs(off) > slack)
             {
                 float goal = _yaw + off - Mathf.Sign(off) * slack;
                 _yaw = Mathf.LerpAngle(_yaw, goal, 1f - Mathf.Exp(-dt / TurnTime));
@@ -182,7 +186,7 @@ namespace VrTweaks
             // moved under you) only slides it back into place. Walking with the stick, it settles right under you
             // (no slack: a lean left over from standing would look odd on the move).
             var goalFromRoot = Flat(eyes - forward * (EyesAheadOfSpine + BackNow) - root.position);
-            var gap = goalFromRoot - _spineFromRoot;
+            var gap = hold ? Vector3.zero : goalFromRoot - _spineFromRoot;
             var before = _spineFromRoot;
             float slackNow = vr._startedMoving ? 0f : FollowSlack;
             if (gap.magnitude > 1f) _spineFromRoot = goalFromRoot; // teleported, respawned: no slide

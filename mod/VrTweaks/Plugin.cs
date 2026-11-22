@@ -35,6 +35,7 @@ namespace VrTweaks
             ApplyVrOnly("Handedness", () => HandednessPatch.Apply(harmony));
             ApplyVrOnly("SpineFollowsNeck", () => SpinePatch.Apply(harmony));
             ApplyVrOnly("BodyPlacement", () => BodyPlacement.Apply(harmony));
+            ApplyVrOnly("CrouchBlend", () => _crouchBlend = CrouchBlend.Apply(harmony));
             ApplyVrOnly("BuildingRotation", () => BuildingRotationPatch.Apply(harmony));
 
             Log.LogInfo(_airHud ? "UnderwaterAirBar: applied" : "UnderwaterAirBar: disabled in config");
@@ -57,12 +58,13 @@ namespace VrTweaks
 
         private bool _immersiveCamera;
         private bool _airHud;
+        private bool _crouchBlend;
 
         // The settings, bound once; ApplySettings copies them to where they're used (at start and when the file changes).
         private ConfigEntry<PlayerBody.ArmorShown> _bodyArmor;
         private ConfigEntry<bool> _bodyBackpack;
-        private ConfigEntry<bool> _bodyVisible, _airHudEnabled, _airHudBlurred, _onlyWhileRotateHeld, _followView;
-        private ConfigEntry<float> _bodyBack, _bodyBackAhead, _watchOffset, _watchSide, _lookDownFrom, _lookDownOver, _bodyTurn, _bodyTurnDown, _bodyFollow, _sprintThreshold, _twistRatio;
+        private ConfigEntry<bool> _bodyVisible, _smoothCrouch, _airHudEnabled, _airHudBlurred, _onlyWhileRotateHeld, _followView;
+        private ConfigEntry<float> _bodyBack, _bodyBackAhead, _watchOffset, _watchSide, _lookDownFrom, _lookDownOver, _bodyTurn, _bodyTurnDown, _bodyFollow, _crouchFrom, _crouchDepth, _sprintThreshold, _twistRatio;
         private ConfigEntry<float> _airDistance, _airHeight, _airSize;
         private readonly Dictionary<ImmersiveCamera.Case, ConfigEntry<bool>> _immersive = new Dictionary<ImmersiveCamera.Case, ConfigEntry<bool>>();
         private ConfigEntry<float> _rotationSmoothing, _positionSmoothing, _rotationSpeedup, _positionSpeedup, _maxPositionLag, _maxRotationLag;
@@ -93,6 +95,12 @@ namespace VrTweaks
                 "The same while you look down at your body (taking over as you look down: LookingDownFrom, LookingDownOver), so it stays put while you look it over.");
             _bodyFollow = Config.Bind("PlayerBody", "FollowAfter", BodyPlacement.FollowSlack,
                 "Metres your head can move away from above your body before the body follows (within it, the body leans towards you; vanilla: 0.4).");
+            _smoothCrouch = Config.Bind("PlayerBody", "SmoothCrouch", CrouchBlend.Enabled,
+                "With the game's physical crouching: your body (and its shadow, and how others see you) crouches gradually as far as you lower your head (false = vanilla: all at once at the game's crouch height). The game's crouching itself (stealth, crouch walking) still starts at its own height.");
+            _crouchFrom = Config.Bind("PlayerBody", "CrouchFrom", CrouchBlend.From,
+                "Metres your eyes go below their standing height before your body starts to crouch (SmoothCrouch). Your standing height is learned as you play.");
+            _crouchDepth = Config.Bind("PlayerBody", "CrouchDepth", CrouchBlend.Depth,
+                "Metres further down where your body is fully crouched (SmoothCrouch): about how far the character's head drops when crouching (the log reports it once seen).");
 
             _sprintThreshold = Config.Bind("Movement", "SprintThreshold", SprintThresholdPatch.Vanilla,
                 "VR auto-run: you sprint while the movement stick is pushed past this part of its range (0.85 = vanilla). Lower: sprint without pushing all the way (sticks that don't reach the edge, especially diagonally). Higher: walk with the stick further out.");
@@ -135,6 +143,8 @@ namespace VrTweaks
                 "Story scenes (opening plane crash, being dragged away, waking up, Timmy, the girl, the endings)");
             Bind(ImmersiveCamera.Case.HangingInCave, "Waking up hanging upside down in the cave");
             Bind(ImmersiveCamera.Case.Death, "Dying (falling, drowning, killed)");
+            _immersive[ImmersiveCamera.Case.Knockdown] = Config.Bind("ImmersiveCamera", nameof(ImmersiveCamera.Case.Knockdown), true,
+                "Knocked down by an explosion: true = first person, seen through the character's eyes as it is thrown back and gets up; false = the view stays with your headset, as vanilla VR; with [PlayerBody] Visible, your body is thrown back from where it stood, its arms moved by the animation instead of reaching for the controllers, its head drawn once clear of your eyes.");
 
             _rotationSmoothing = Config.Bind("ImmersiveCamera", "RotationSmoothing", HeadPin.RotationSmoothing,
                 "Seconds the pinned view takes to follow the character's head rotation (smooths its small animated movements); 0 = no smoothing.");
@@ -165,6 +175,9 @@ namespace VrTweaks
             BodyPlacement.LookDownOver = Mathf.Clamp(_lookDownOver.Value, 0f, 180f);
             BodyPlacement.TurnSlackLookingDown = Mathf.Clamp(_bodyTurnDown.Value, 0f, 180f);
             BodyPlacement.FollowSlack = Mathf.Max(0f, _bodyFollow.Value);
+            CrouchBlend.Enabled = _smoothCrouch.Value;
+            CrouchBlend.From = Mathf.Clamp(_crouchFrom.Value, 0f, 1f);
+            CrouchBlend.Depth = Mathf.Clamp(_crouchDepth.Value, 0f, 2f);
             SprintThresholdPatch.Threshold = Mathf.Clamp(_sprintThreshold.Value, 0.1f, 1f);
             BuildingRotationPatch.Ratio = _twistRatio.Value;
             BuildingRotationPatch.OnlyWhileRotateHeld = _onlyWhileRotateHeld.Value;
@@ -232,6 +245,11 @@ namespace VrTweaks
             {
                 try { AirHud.UpdateCamera(); }
                 catch (Exception e) { Log.LogError($"UnderwaterAirBar: {e}"); _airHud = false; }
+            }
+            if (_crouchBlend)
+            {
+                try { CrouchBlend.Update(); }
+                catch (Exception e) { Log.LogError($"CrouchBlend: {e}"); _crouchBlend = false; }
             }
             if (_playerBody)
             {

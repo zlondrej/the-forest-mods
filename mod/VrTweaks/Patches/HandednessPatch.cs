@@ -90,22 +90,35 @@ namespace VrTweaks
         private static Quaternion _leftRot, _rightRot;
         private static bool _measured;
 
-        /// <summary>Before the arms are solved: while mirrored, each arm reaches for the controller on its side.</summary>
-        private static void IkSolvePrefix(VRPlayerControl __instance)
+        /// <summary>
+        /// Before the arms are solved: while mirrored, each arm reaches for the controller on its side. Knocked down with
+        /// the body drawn and the view left with the headset (ImmersiveCamera.AnimatedKnockdown), the arms aren't solved:
+        /// the animation moves them, as in scenes, holding what they hold.
+        /// </summary>
+        private static bool IkSolvePrefix(VRPlayerControl __instance)
         {
-            if (!ForestVR.Enabled) return;
+            if (!ForestVR.Enabled) return true;
             var left = _leftIk.GetValue(__instance) as InverseKinematics;
             var right = _rightIk.GetValue(__instance) as InverseKinematics;
-            if (__instance.useGhostMode)
+            bool knockdown = ImmersiveCamera.AnimatedKnockdown;
+            if (__instance.useGhostMode || knockdown)
             {
                 // Scenes: the game doesn't pose the arms (the animation does), so what was done to them last stays
                 // (a stretched forearm reached for the sky while being dragged): undone, once.
                 Unpose(left);
                 Unpose(right);
             }
+            if (knockdown)
+            {
+                // The arms' own mirroring undone and what they hold back on the hands, as unmirrored.
+                if (__instance.RightHandedActive) UnmirrorArms(__instance);
+                if (left) LeftHeld.Home(left);
+                if (right) RightHeld.Home(right);
+                return false;
+            }
             var leftHand = (_leftHand.GetValue(__instance) as Component)?.transform;
             var rightHand = (_rightHand.GetValue(__instance) as Component)?.transform;
-            if (!left || !right || !leftHand || !rightHand) return;
+            if (!left || !right || !leftHand || !rightHand) return true;
 
             // The arms' own targets (a new player has new ones).
             if (!_leftTarget || left.target != _leftProxy && left.target != _leftTarget)
@@ -118,7 +131,7 @@ namespace VrTweaks
                 _rightTarget = right.target;
                 _measured = false;
             }
-            if (!_leftTarget || !_rightTarget) return;
+            if (!_leftTarget || !_rightTarget) return true;
 
             if (!__instance.RightHandedActive)
             {
@@ -130,7 +143,7 @@ namespace VrTweaks
                 LeftHeld.Home(left);
                 RightHeld.Home(right);
                 Fingers.Restore();
-                return;
+                return true;
             }
 
             // Mirrored: the right hand object follows the left controller and the left one the right controller.
@@ -154,6 +167,7 @@ namespace VrTweaks
             // left-handed) to the left controller, the left hand's (the lighter) to the right one.
             RightHeld.Mirror(right, _rightTarget, __instance.transform);
             LeftHeld.Mirror(left, _leftTarget, __instance.transform);
+            return true;
         }
 
         private static readonly HeldItems LeftHeld = new HeldItems(), RightHeld = new HeldItems();

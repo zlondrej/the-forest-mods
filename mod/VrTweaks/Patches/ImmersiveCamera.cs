@@ -15,10 +15,17 @@ namespace VrTweaks
     /// set, without knowing why. Here each action notes its case when it starts; when the theatre is about to switch on,
     /// a case set to immersive skips it, so the view stays first person, pinned to the character's head with the headset
     /// only rotating it (see <see cref="HeadPin"/>). Ghost mode itself (the animation driving the body) is unchanged.
+    ///
+    /// Being knocked down by an explosion is no scene in vanilla VR: the animation throws the body back and down while
+    /// the view and the arms stay with the headset and controllers (you saw your body from above, headless, its arms
+    /// stretched up to the controllers). As a first-person case, ghost mode is switched on for it here, so it plays as
+    /// the other scenes do. Otherwise the view stays with the headset as in vanilla, but with the body drawn its arms
+    /// play the animation, it stays where it stood, and its head is drawn once thrown clear of your eyes
+    /// (<see cref="AnimatedKnockdown"/>).
     /// </summary>
     internal static class ImmersiveCamera
     {
-        internal enum Case { None, Caves, Climbing, Drinking, Raft, Skinning, KeypadDoors, Artifact, StoryScenes, HangingInCave, Death }
+        internal enum Case { None, Caves, Climbing, Drinking, Raft, Skinning, KeypadDoors, Artifact, StoryScenes, HangingInCave, Death, Knockdown }
 
         /// <summary>Per case: true = immersive (first person), false = theatre (vanilla).</summary>
         internal static readonly Dictionary<Case, bool> Immersive = new Dictionary<Case, bool>();
@@ -55,6 +62,7 @@ namespace VrTweaks
             new Trigger(Case.StoryScenes, typeof(PlayerPickupTimmyAction), "pickupTimmyRoutine", "lockPlayerParams"),
             new Trigger(Case.StoryScenes, typeof(TriggerCutScene), "startPlayerInPlane"),
             new Trigger(Case.Death, typeof(PlayerStats), "DeathInWater", "FallDownDead", "KillMeFast", "KillPlayer"),
+            new Trigger(Case.Knockdown, typeof(playerHitReactions), "enableExplodeCamera"),
         };
 
         private static Case _case;       // the action that started last
@@ -134,6 +142,53 @@ namespace VrTweaks
 
         private static bool Is(Dictionary<Case, bool> settings, Case c) => settings.TryGetValue(c, out var on) && on;
         private static void StartDeath() => Started(Case.Death);
+        private static void StartKnockdown() => Started(Case.Knockdown);
+
+        private static bool _knockdownGhost; // ghost mode switched on here, for a knockdown
+
+        private static bool KnockedDown(VRPlayerControl vr) =>
+            vr && LocalPlayer.AnimControl && LocalPlayer.AnimControl.knockedDown && LocalPlayer.vrPlayerControl == vr;
+
+        /// <summary>
+        /// Knocked down (the game's knockedDown, set from the blast until the character is back up), and the case is
+        /// first person: ghost mode on meanwhile, so the theatre is asked for and skipped as for the other scenes (the
+        /// view at the head, the body playing the animation, arms included). Off again when the character is up, unless
+        /// another scene took over meanwhile (dying from the blast: that scene's ghost mode is its own).
+        /// </summary>
+        private static void UpdateKnockdown(VRPlayerControl vr)
+        {
+            if (!vr) return;
+            if (!_knockdownGhost)
+            {
+                if (_case != Case.Knockdown || vr.useGhostMode) return;
+                if (!KnockedDown(vr)) _case = Case.None; // up again (theatre case): forgotten, as a scene's case is
+                else if (Is(Immersive, Case.Knockdown))
+                {
+                    vr.useGhostMode = true;
+                    _knockdownGhost = true;
+                }
+            }
+            else if (_case != Case.Knockdown || !KnockedDown(vr))
+            {
+                if (_case == Case.Knockdown) vr.useGhostMode = false;
+                _knockdownGhost = false;
+            }
+        }
+
+        /// <summary>
+        /// Knocked down outside ghost mode (the case set to vanilla's view) with the body drawn: the view stays with the
+        /// headset, but the arms play the animation instead of reaching for the controllers (HandednessPatch), and the
+        /// body stays where it stood instead of following your head (BodyPlacement), its head drawn once clear of your
+        /// eyes (PlayerBody). Body not drawn: all as vanilla.
+        /// </summary>
+        public static bool AnimatedKnockdown
+        {
+            get
+            {
+                var vr = LocalPlayer.vrPlayerControl;
+                return PlayerBody.Visible && KnockedDown(vr) && !vr.useGhostMode;
+            }
+        }
 
         private static float _hangingSince;
         private static bool _hangingSeen;
@@ -296,7 +351,7 @@ namespace VrTweaks
             HeadPin.Abandon();
             BodyView.Abandon();
             _case = _skipping = _sceneCase = Case.None;
-            _wasGhost = _setGhostFlag = false;
+            _wasGhost = _setGhostFlag = _knockdownGhost = false;
             _drownedAt = float.NegativeInfinity;
             _planeIntro = false;
         }
@@ -309,6 +364,7 @@ namespace VrTweaks
         private static void TheatreUpdatePostfix(VRTheatreController __instance)
         {
             var vr = LocalPlayer.vrPlayerControl;
+            UpdateKnockdown(vr);
             bool ghost = vr && vr.useGhostMode;
             HeadPin.Tick();
             // The pin ends with ghost mode, or later for scenes that outlast it (hanging: the game ends ghost mode

@@ -127,6 +127,7 @@ namespace VrTweaks
                 pair.Key.shadowCastingMode = pair.Value.Mode;
             }
             Changed.Clear();
+            HideHead();
             _done = null;
             Plugin.Log.LogInfo("PlayerBody: body drawn as a shadow only");
         }
@@ -153,7 +154,9 @@ namespace VrTweaks
         /// <summary>Every frame.</summary>
         public static void UpdateArms()
         {
-            if (!ForestVR.Enabled || BodyView.Shown) return; // the scene's body view has the arms meanwhile
+            if (!ForestVR.Enabled) return;
+            UpdateHead(LocalPlayer.vrAdapter);
+            if (BodyView.Shown) return; // the scene's body view has the arms meanwhile
             var adapter = LocalPlayer.vrAdapter;
             if (adapter != _armsAdapter)
             {
@@ -191,6 +194,71 @@ namespace VrTweaks
             if (worn) worn.shadowCastingMode = ShadowCastingMode.On;
             hands.shadowCastingMode = worn ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
             _drawnArms = worn;
+        }
+
+        // The head. VR leaves its meshes on the "Camera" layer, which the eye camera doesn't draw, and casting only a
+        // shadow. Knocked down with the view left at your headset (ImmersiveCamera.AnimatedKnockdown), the body is
+        // thrown away from your eyes: once its head is far enough not to be seen from inside, the head meshes are put
+        // on the layer the body is drawn on and drawn (as the theatre shows them), and put back when it comes back.
+        private const float HeadShownFrom = 0.3f, HeadHiddenWithin = 0.25f; // metres from your eyes
+        private static readonly Dictionary<Renderer, KeyValuePair<int, ShadowCastingMode>> HeadChanged =
+            new Dictionary<Renderer, KeyValuePair<int, ShadowCastingMode>>();
+        private static bool _headShown;
+
+        private static void UpdateHead(VRPlayerAdapter adapter)
+        {
+            bool show = false;
+            var vr = LocalPlayer.vrPlayerControl;
+            var setup = LocalPlayer.ScriptSetup;
+            if (adapter && adapter == _done && !BodyView.Shown && ImmersiveCamera.AnimatedKnockdown && vr && vr.VRCamera
+                && setup && setup.headJnt)
+            {
+                float distance = Vector3.Distance(setup.headJnt.position, vr.VRCamera.position);
+                show = distance > (_headShown ? HeadHiddenWithin : HeadShownFrom);
+            }
+            if (show == _headShown) return;
+            if (show) ShowHead(adapter);
+            else HideHead();
+        }
+
+        private static void ShowHead(VRPlayerAdapter adapter)
+        {
+            int cameraLayer = LayerMask.NameToLayer("Camera");
+            int layer = 18; // the theatre's, if no drawn body mesh tells
+            foreach (var r in Changed.Keys)
+                if (r && r.enabled && r.shadowCastingMode == ShadowCastingMode.On && r.gameObject.layer != cameraLayer)
+                {
+                    layer = r.gameObject.layer;
+                    break;
+                }
+            ShowHead(adapter.PlayerHead1, layer);
+            if (adapter.PlayerMeshesToDisable != null)
+                foreach (var go in adapter.PlayerMeshesToDisable)
+                    if (go)
+                        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+                            if (r && (r == adapter.PlayerHead1 || r.gameObject.layer == cameraLayer || BodyView.IsHead(r.name)))
+                                ShowHead(r, layer);
+            _headShown = true;
+        }
+
+        private static void ShowHead(Renderer r, int layer)
+        {
+            if (!r || HeadChanged.ContainsKey(r)) return;
+            HeadChanged[r] = new KeyValuePair<int, ShadowCastingMode>(r.gameObject.layer, r.shadowCastingMode);
+            r.gameObject.layer = layer;
+            r.shadowCastingMode = ShadowCastingMode.On; // switched off (armour left out) stays off
+        }
+
+        private static void HideHead()
+        {
+            foreach (var pair in HeadChanged)
+            {
+                if (!pair.Key) continue;
+                pair.Key.gameObject.layer = pair.Value.Key;
+                pair.Key.shadowCastingMode = pair.Value.Value;
+            }
+            HeadChanged.Clear();
+            _headShown = false;
         }
 
         private static Renderer FindRenderer(VRPlayerAdapter adapter, string name)
