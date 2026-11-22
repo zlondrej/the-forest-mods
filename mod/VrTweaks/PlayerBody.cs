@@ -10,7 +10,8 @@ namespace VrTweaks
     /// looking down there is nothing below the floating VR hands. Here the body is drawn: torso and legs, clothes and
     /// armour, following the VR body as the game animates it, and the outfit's own arms or hands instead of the VR
     /// hands (UpdateArms). Left out: the head (it would block the view; its meshes are also on a layer the eye camera
-    /// doesn't draw). Where the body stands and how it turns: BodyPlacement.
+    /// doesn't draw), with it the neck: a bare torso inside the clothes fills the collar instead (InnerTorso). Where
+    /// the body stands and how it turns: BodyPlacement.
     /// Armour (<see cref="Armor"/>) and the backpack (<see cref="Backpack"/>) can be left out, as they block the view
     /// looking down. Armour left out isn't drawn at all, not even its shadow (a shadow of armour you don't see looks
     /// wrong); a backpack left out still casts its shadow, as in vanilla.
@@ -156,6 +157,8 @@ namespace VrTweaks
         {
             if (!ForestVR.Enabled) return;
             UpdateHead(LocalPlayer.vrAdapter);
+            var body = LocalPlayer.vrAdapter;
+            InnerTorso.Update(body, body && (BodyView.Shown || (Visible && body == _done)), BodyLayer());
             if (BodyView.Shown) return; // the scene's body view has the arms meanwhile
             var adapter = LocalPlayer.vrAdapter;
             if (adapter != _armsAdapter)
@@ -221,16 +224,20 @@ namespace VrTweaks
             else HideHead();
         }
 
+        /// <summary>The layer the body is drawn on: a drawn body mesh's, or the theatre's (18).</summary>
+        private static int BodyLayer()
+        {
+            int cameraLayer = LayerMask.NameToLayer("Camera");
+            foreach (var r in Changed.Keys)
+                if (r && r.enabled && r.shadowCastingMode == ShadowCastingMode.On && r.gameObject.layer != cameraLayer)
+                    return r.gameObject.layer;
+            return 18;
+        }
+
         private static void ShowHead(VRPlayerAdapter adapter)
         {
             int cameraLayer = LayerMask.NameToLayer("Camera");
-            int layer = 18; // the theatre's, if no drawn body mesh tells
-            foreach (var r in Changed.Keys)
-                if (r && r.enabled && r.shadowCastingMode == ShadowCastingMode.On && r.gameObject.layer != cameraLayer)
-                {
-                    layer = r.gameObject.layer;
-                    break;
-                }
+            int layer = BodyLayer();
             ShowHead(adapter.PlayerHead1, layer);
             if (adapter.PlayerMeshesToDisable != null)
                 foreach (var go in adapter.PlayerMeshesToDisable)
