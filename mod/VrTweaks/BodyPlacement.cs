@@ -109,8 +109,6 @@ namespace VrTweaks
         private static void Prefix(VRPlayerControl __instance)
         {
             if (!ForestVR.Enabled) return;
-            try { CrouchBlend.Measure(); }
-            catch (System.Exception e) { Plugin.Log.LogError($"CrouchBlend: {e}"); }
             try { Place(__instance); }
             catch (System.Exception e)
             {

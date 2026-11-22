@@ -54,6 +54,4 @@ VRPlayerControl::LateUpdate
 ?PlayerPreferences::VRForwardMovement
 playerAnimatorControl::FixedUpdate
 ?playerAnimatorControl::modLocalVel
-FirstPersonCharacter::EnableCrouch
-FirstPersonCharacter::DisableCrouch
 playerHitReactions::enableExplodeCamera

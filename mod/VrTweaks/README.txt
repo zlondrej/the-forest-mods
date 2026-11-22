@@ -31,12 +31,11 @@ WHAT IT DOES
     threw when you pressed it while your hand was moving, e.g. backwards while winding up.
   - Ropes: sprint + stick down starts the fast slide, as in flat-screen (vanilla VR almost never started it).
   - Your body is drawn (torso and legs, with clothes, armour and backpack; not the head: a bare torso, closed over
-    the neck, is drawn inside the clothes, so you see skin through the collar, not into the body), with the outfit's own
-    arms and hands instead of the VR hands. Vanilla VR only draws its shadow. It stands upright with its head under
-    yours (vanilla leaned it forward, more so when you looked down); leaning in your room still leans it. With
-    physical crouching it crouches as far as you do (vanilla crouched it all at once at a set height). Knocked down
-    by an explosion, you see it through the character's eyes as it is thrown back and gets up (vanilla kept the view
-    and the arms at your headset and controllers, away from the body).
+    the neck, is drawn inside the clothes and fills loose ones, so you see skin through the collar, not into the
+    body), with the outfit's own arms and hands instead of the VR hands. Vanilla VR only draws its shadow. It stands
+    upright with its head under yours (vanilla leaned it forward, more so when you looked down); leaning in your
+    room still leans it. Knocked down by an explosion, you see it through the character's eyes as it is thrown back
+    and gets up (vanilla kept the view and the arms at your headset and controllers, away from the body).
   - Handedness: the bow (crossbow, slingshot) follows only the "right handed bow" option; vanilla also put it in the
     left hand with left-handed weapons. The quick-select backpack always opens in the left hand (the held weapon
     moves to the right hand meanwhile). With the hands mirrored (bow in the left hand, or left-handed weapons), the
@@ -61,9 +60,7 @@ SETTINGS
     TurnAfterLookingDown: how far you turn your head before it turns along (degrees); LookingDownFrom,
     LookingDownOver: from how far down (degrees) the "looking down" values take over, and over how many more
     degrees; FollowAfter: how far your head moves before it follows (metres); Armor: which armour is drawn
-    (None, Limbs = arms and legs only, All); Backpack: draw the backpack; SmoothCrouch: crouch gradually (false =
-    vanilla); CrouchFrom, CrouchDepth: how far below your standing height it starts to crouch and how much further
-    it is fully crouched (metres).
+    (None, Limbs = arms and legs only, All); Backpack: draw the backpack.
   - [BuildingRotation]: how much the hand twist turns a building (0 = off), whether only while the rotate button
     is held, and whether the building keeps facing you as you turn.
   The other fixes are always on.
