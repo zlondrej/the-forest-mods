@@ -94,6 +94,35 @@ namespace VrTweaks
                 prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(DeathInWaterPrefix)));
             harmony.Patch(AccessTools.Method(typeof(TriggerCutScene), "startPlayerInPlane"),
                 prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(PlaneIntroPrefix)));
+            var fillPot = AccessTools.Method(typeof(PlayerFillPotAction), "doFillPotRoutine");
+            if (fillPot != null)
+                harmony.Patch(fillPot, prefix: new HarmonyMethod(typeof(ImmersiveCamera), nameof(FillPotPrefix)));
+        }
+
+        private static bool _fillingPot;
+
+        /// <summary>
+        /// Filling a pot (or a water skin) at the water: no theatre in vanilla VR (unlike drinking), the view just stays
+        /// at the headset while the body crouches to the water, away from it. With drinking set to first person, it
+        /// plays as the drinking scene does: the view pinned to the head, the skeleton on the body, the body shown as in
+        /// the scenes, the arms animated (AnimatedBody); until the game's drinking flag drops at its end.
+        /// </summary>
+        private static void FillPotPrefix()
+        {
+            var vr = LocalPlayer.vrPlayerControl;
+            if (!ForestVR.Enabled || !vr || vr.useGhostMode || HeadPin.On || !Is(Immersive, Case.Drinking)) return;
+            _fillingPot = true;
+            BodyView.Show();
+            HeadPin.Start(FillingPot);
+        }
+
+        /// <summary>Filling a pot, as started above: the game's drinking flag is up (set in the routine's first step).</summary>
+        private static bool FillingPot()
+        {
+            if (!_fillingPot) return false;
+            var fps = LocalPlayer.FpCharacter;
+            _fillingPot = fps && fps.drinking;
+            return _fillingPot;
         }
 
         private static bool _planeIntro;
@@ -176,24 +205,46 @@ namespace VrTweaks
         }
 
         /// <summary>
-        /// Knocked down outside ghost mode (the case set to vanilla's view), or riding the turtle shell, with the body
-        /// drawn: the view stays with the headset, but the arms play the animation instead of reaching for the
-        /// controllers (HandednessPatch), and the body stays where it stood instead of following your head
-        /// (BodyPlacement), its head drawn once clear of your eyes (PlayerBody). Body not drawn: all as vanilla.
+        /// Knocked down outside ghost mode (the case set to vanilla's view), riding the turtle shell, pulling a sled,
+        /// holding or flying the hang glider, with the body drawn: the arms play the animation instead of reaching for
+        /// the controllers (HandednessPatch; filling a pot too, body drawn or not), and the body stays where it stood
+        /// instead of following your head (BodyPlacement), its head drawn once clear of your eyes (PlayerBody). Body
+        /// not drawn: all as vanilla.
         /// </summary>
         public static bool AnimatedBody
         {
             get
             {
                 var vr = LocalPlayer.vrPlayerControl;
-                if (!PlayerBody.Drawn || !vr || vr.useGhostMode || LocalPlayer.vrPlayerControl != vr) return false;
+                if (!vr || vr.useGhostMode) return false;
+                if (_fillingPot) return true; // a first-person scene without ghost mode: the body is shown either way
+                if (!PlayerBody.Drawn) return false;
+                if (KnockedDown(vr)) return true;
+                // Riding (or holding the glider, which leaves the hands nothing else to do), in the world only: the
+                // inventory, the book and the menus are worked with the hands at the controllers.
                 var anim = LocalPlayer.AnimControl;
-                return KnockedDown(vr) || (anim && anim.doShellRideMode);
+                var inventory = LocalPlayer.Inventory;
+                bool world = inventory && inventory.CurrentView == TheForest.Items.Inventory.PlayerInventory.PlayerViews.World;
+                return world && ((anim && (anim.doShellRideMode || anim.holdingGlider)) || Riding());
             }
         }
 
         private static float _hangingSince;
         private static bool _hangingSeen;
+
+        /// <summary>
+        /// Pulling a sled or flying the hang glider: the view is pinned to the character's head as in the first-person
+        /// scenes (HeadPin: the headset only turns it), so walking about your room doesn't move it away from the body.
+        /// The skeleton stays where VR has it (anchored to the body as in the scenes, the glider hung from its hips
+        /// backwards and tilted up); BodyPlacement leaves it alone meanwhile. The game already stops VR room-scale
+        /// movement then.
+        /// </summary>
+        private static bool Riding()
+        {
+            var fps = LocalPlayer.FpCharacter;
+            var anim = LocalPlayer.AnimControl;
+            return ForestVR.Enabled && ((fps && fps.PushingSled) || (anim && anim.flyingGlider));
+        }
 
         /// <summary>
         /// Hanging upside down in the cave: the animator's hangingBool, cleared when the player is cut down. Before it is
@@ -368,6 +419,7 @@ namespace VrTweaks
             var vr = LocalPlayer.vrPlayerControl;
             UpdateKnockdown(vr);
             bool ghost = vr && vr.useGhostMode;
+            if (!ghost && !HeadPin.On && Riding()) HeadPin.Start(Riding, anchorSkeleton: false);
             HeadPin.Tick();
             // The pin ends with ghost mode, or later for scenes that outlast it (hanging: the game ends ghost mode
             // while the player still hangs).

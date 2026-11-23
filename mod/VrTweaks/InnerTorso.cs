@@ -79,7 +79,9 @@ namespace VrTweaks
         /// <summary>Every frame: drawn on <paramref name="layer"/> while <paramref name="show"/> (the body is drawn).</summary>
         public static void Update(VRPlayerAdapter adapter, bool show, int layer)
         {
-            if (adapter != _adapter)
+            // Compared as references: Unity's == calls a destroyed player's adapter equal to none, so when the player
+            // went away (rehosting in multiplayer) the old torso was kept and the missing adapter used.
+            if (!ReferenceEquals(adapter, _adapter) || !adapter)
             {
                 if (_torso) Object.Destroy(_torso.gameObject);
                 _torso = null;
@@ -88,6 +90,7 @@ namespace VrTweaks
                 _worn = null;
                 _tried = false;
                 _adapter = adapter;
+                if (!adapter) return;
             }
             if (show && !_tried && adapter)
             {

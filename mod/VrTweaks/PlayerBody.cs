@@ -22,11 +22,8 @@ namespace VrTweaks
 
         public static bool Visible = true;
 
-        /// <summary>
-        /// The body is drawn now: <see cref="Visible"/>, except while flying the hang glider (it hangs from the body in
-        /// ways not worked out yet: vanilla VR's VR hands and shadow meanwhile).
-        /// </summary>
-        public static bool Drawn => Visible && !(LocalPlayer.AnimControl && LocalPlayer.AnimControl.flyingGlider);
+        /// <summary>The body is drawn now (<see cref="Visible"/>; a place to leave it out in some actions).</summary>
+        public static bool Drawn => Visible;
 
         /// <summary>Which armour is drawn: none, only on arms and legs, or all (chest, shoulders and body too).</summary>
         public static ArmorShown Armor = ArmorShown.All;
@@ -81,7 +78,19 @@ namespace VrTweaks
                 if (!Drawn) return;
             }
             var adapter = LocalPlayer.vrAdapter;
-            if (!adapter || adapter == _done || adapter.PlayerMeshesToDisable == null) return;
+            if (!adapter || adapter.PlayerMeshesToDisable == null) return;
+            if (adapter == _done)
+            {
+                // Meshes VR made shadows only after they were gone through (a new player's VR setup coming after it, an
+                // outfit's meshes made later): drawn too.
+                int before = _drawn;
+                foreach (var go in adapter.PlayerMeshesToDisable)
+                    if (go)
+                        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+                            Draw(adapter, r);
+                if (_drawn != before) Plugin.Log.LogInfo($"PlayerBody: {_drawn - before} more body meshes drawn");
+                return;
+            }
             _done = adapter;
             _drawnWith = settings;
             Changed.Clear();
@@ -155,6 +164,7 @@ namespace VrTweaks
         // sleeves, hands that bend at the wrist with either. In the world view only: the inventory draws the VR hands
         // on its own layer. The watch is its own object on the left hand bone, drawn either way.
         private static VRPlayerAdapter _armsAdapter;
+        private static bool _torsoFailed;
         private static Renderer _justHands, _drawnArms;
         private static bool _armsSwitchedOn; // the bare arms switched back on here (see UpdateArms)
 
@@ -164,7 +174,16 @@ namespace VrTweaks
             if (!ForestVR.Enabled) return;
             UpdateHead(LocalPlayer.vrAdapter);
             var body = LocalPlayer.vrAdapter;
-            InnerTorso.Update(body, body && (BodyView.Shown || (Drawn && body == _done)), BodyLayer());
+            // On its own: a failure there leaves the collar open, but mustn't stop the body being drawn.
+            if (!_torsoFailed)
+            {
+                try { InnerTorso.Update(body, body && (BodyView.Shown || (Drawn && body == _done)), BodyLayer()); }
+                catch (System.Exception e)
+                {
+                    Plugin.Log.LogError($"InnerTorso: {e}");
+                    _torsoFailed = true;
+                }
+            }
             if (BodyView.Shown) return; // the scene's body view has the arms meanwhile
             var adapter = LocalPlayer.vrAdapter;
             if (adapter != _armsAdapter)

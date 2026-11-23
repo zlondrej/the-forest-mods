@@ -56,3 +56,6 @@ playerAnimatorControl::FixedUpdate
 invertRotateConstrain::FixedUpdate
 ?playerAnimatorControl::modLocalVel
 playerHitReactions::enableExplodeCamera
+PlayerFillPotAction::doFillPotRoutine
+?TheForest.Utils.Input::GetDropInput
+VRThrowable::MinThrowVelocity

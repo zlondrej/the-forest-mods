@@ -13,12 +13,13 @@ UNINSTALL
   Just this mod: delete BepInEx\plugins\VrTweaks. Everything: see UNINSTALL in ArrowFixes-README.txt.
 
 WHAT IT DOES
-  - Immersive camera: scripted scenes (crawling into caves, getting on and off ropes, drinking, the raft, skinning,
-    keycard doors, the artifact, story scenes, waking up hanging in the cave, dying) play in first person, seen
-    through the character's eyes as in flat-screen, instead of on a screen in a dark room (vanilla VR's "theatre
-    mode"). Your headset turns the view; its position follows the character's head, smoothed so the animation's
-    small movements don't shake it. Your body is visible (not the head). On a rope you look around and lean
-    freely, at the character's height.
+  - Immersive camera: scripted scenes (crawling into caves, getting on and off ropes, drinking and filling a pot,
+    the raft, skinning, keycard doors, the artifact, story scenes, waking up hanging in the cave, dying) play in
+    first person, seen through the character's eyes as in flat-screen, instead of on a screen in a dark room
+    (vanilla VR's "theatre mode"; filling a pot had no scene at all, the body crouched away from your view). Your
+    headset turns the view; its position follows the character's head, smoothed so the animation's small movements
+    don't shake it. Your body is visible (not the head). On a rope you look around and lean freely, at the
+    character's height.
   - Pause menu: a short press of the inventory button opens the pause menu where the inventory can't open
     (underwater, hanging in the cave, during animations), as Esc does in flat-screen. Holding it still opens the
     quick select.
@@ -37,8 +38,10 @@ WHAT IT DOES
     room still leans it. Knocked down by an explosion, you see it through the character's eyes as it is thrown back
     and gets up (vanilla kept the view and the arms at your headset and controllers, away from the body). Riding the
     turtle shell, it sits on the shell as the animation has it, arms included, with its head drawn below you
-    (instead of reaching up for your controllers). Pulling a sled, it stays as the game has it (turning it with you
-    turned the sled). Flying the hang glider, it isn't drawn (VR hands and shadow, as vanilla).
+    (instead of reaching up for your controllers). Pulling a sled or flying the hang glider, your view is at the
+    character's head as in the first-person scenes (the headset only turns it: walking about your room doesn't
+    move it away from the body), and the body stays as the game has it (turning it with your head turned the sled),
+    its arms holding on as the animation has them (holding the glider on foot too).
   - Handedness: the bow (crossbow, slingshot) follows only the "right handed bow" option; vanilla also put it in the
     left hand with left-handed weapons. The quick-select backpack always opens in the left hand (the held weapon
     moves to the right hand meanwhile). With the hands mirrored (bow in the left hand, or left-handed weapons), the

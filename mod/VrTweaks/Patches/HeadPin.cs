@@ -58,7 +58,11 @@ namespace VrTweaks
         /// scene is over).
         /// </param>
         /// <param name="pinWhile">Pin the view only while this is true (null = all the time); checked every frame.</param>
-        public static void Start(System.Func<bool> keepWhile = null, System.Func<bool> pinWhile = null)
+        /// <param name="anchorSkeleton">
+        /// Hang the skeleton on the body as in flat-screen (scenes); false: leave it where VR has it (riding a sled or the
+        /// glider: the game places what hangs from it, e.g. the glider at the hips, for VR's skeleton).
+        /// </param>
+        public static void Start(System.Func<bool> keepWhile = null, System.Func<bool> pinWhile = null, bool anchorSkeleton = true)
         {
             if (_on) return;
             var vr = LocalPlayer.vrPlayerControl;
@@ -67,7 +71,7 @@ namespace VrTweaks
             _pinWhile = pinWhile;
             _rig = vr.VRCameraRig;
             FollowHead = false;
-            AnchorSkeletonToBody();
+            if (anchorSkeleton) AnchorSkeletonToBody();
             _on = true;
             if (Safe(_pinWhile ?? (() => true), true)) Engage();
         }

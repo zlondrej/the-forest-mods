@@ -22,8 +22,8 @@ namespace VrTweaks
     /// Knocked down (with the view left with the headset) or riding the turtle shell, it stays where it stood: the
     /// animation throws it from there, or sits it on the shell.
     /// Between frames it stays placed (ConstrainPostfix), so what is held is where it is drawn when the game checks it.
-    /// Not in scenes (the theatre or the immersive camera take the skeleton), nor pulling a sled (it hangs from the
-    /// skeleton), nor with the body not drawn.
+    /// Not in scenes (the theatre or the immersive camera take the skeleton), nor with a sled or the hang glider (they
+    /// hang from the skeleton), nor with the body not drawn.
     /// </summary>
     internal static class BodyPlacement
     {
@@ -155,7 +155,7 @@ namespace VrTweaks
                 _placed = false;
             }
             bool applies = PlayerBody.Drawn && joints && root && head && spine && vr.VROffsetTransform
-                           && joints.parent == vr.VROffsetTransform && !InScene(vr) && !OnSled();
+                           && joints.parent == vr.VROffsetTransform && !InScene(vr) && !Riding();
             if (!applies)
             {
                 if (_placed && joints && joints.parent == vr.VROffsetTransform) joints.localPosition = Vector3.zero;
@@ -254,14 +254,15 @@ namespace VrTweaks
         private static float Smooth01(float t) => t * t * (3f - 2f * t);
 
         /// <summary>
-        /// Pulling a sled: it hangs from the skeleton (PlayerPushSledAction: under the sled hinge's parent), so turning
-        /// the body with your head turned the sled, which then dragged back. The skeleton stays as the game has it.
+        /// Pulling a sled or holding the hang glider: they hang from the skeleton (the sled under the sled hinge's
+        /// parent, the glider from char_Hips/VRGliderPos), so turning the body with your head turned them (the sled
+        /// then dragged back). The skeleton stays as the game has it.
         /// </summary>
-        private static bool OnSled()
+        private static bool Riding()
         {
             var fps = LocalPlayer.FpCharacter;
             var anim = LocalPlayer.AnimControl;
-            return (fps && fps.PushingSled) || (anim && anim.doSledPushMode);
+            return (fps && fps.PushingSled) || (anim && (anim.doSledPushMode || anim.holdingGlider || anim.flyingGlider));
         }
 
         /// <summary>Scenes (theatre mode or immersive camera) and the plane crash: the skeleton is theirs.</summary>

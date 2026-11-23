@@ -36,6 +36,7 @@ namespace VrTweaks
             ApplyVrOnly("SpineFollowsNeck", () => SpinePatch.Apply(harmony));
             ApplyVrOnly("BodyPlacement", () => BodyPlacement.Apply(harmony));
             ApplyVrOnly("BuildingRotation", () => BuildingRotationPatch.Apply(harmony));
+            ApplyVrOnly("DropThrowDiagnostics", () => DropThrowDiagnostics.Apply(harmony));
 
             Log.LogInfo(_airHud ? "UnderwaterAirBar: applied" : "UnderwaterAirBar: disabled in config");
 
@@ -126,7 +127,7 @@ namespace VrTweaks
 
             Bind(ImmersiveCamera.Case.Caves, "Crawling into or out of a cave entrance");
             Bind(ImmersiveCamera.Case.Climbing, "Getting onto and off a rope or climbing wall (on it, you look around and lean freely, at the character's height)");
-            Bind(ImmersiveCamera.Case.Drinking, "Drinking from a lake, river or other water");
+            Bind(ImmersiveCamera.Case.Drinking, "Drinking from a lake, river or other water, and filling a pot or water skin there (vanilla VR has no theatre for filling: the view stays with your headset while the body crouches away from it)");
             Bind(ImmersiveCamera.Case.Raft, "Getting on and riding a raft");
             Bind(ImmersiveCamera.Case.Skinning, "Skinning an animal");
             Bind(ImmersiveCamera.Case.KeypadDoors, "Opening a keycard/keypad door");
@@ -240,6 +241,8 @@ namespace VrTweaks
                 try { PlayerBody.UpdateArms(); }
                 catch (Exception e) { Log.LogError($"PlayerBody: {e}"); _playerBody = false; }
             }
+            try { DropThrowDiagnostics.Tick(); }
+            catch (Exception e) { Log.LogError($"DropThrow: {e}"); }
             try { BuildingRotationPatch.UpdateSign(); }
             catch (Exception e) { Log.LogError($"BuildingRotation: {e}"); }
             if (Time.unscaledTime < _nextTick) return;
