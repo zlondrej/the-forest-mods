@@ -47,6 +47,7 @@ The two game builds run different Unity versions (5.6 flat-screen, 2017.4 VR) an
 | Path | Contents |
 |---|---|
 | `mod/ArrowFixes`, `mod/MeatBadges`, `mod/VrTweaks` | The mods (BepInEx plugins). |
+| `mod/DevCheats` | For testing only, not in the release zip: god mode, free building, unlimited items and the schematic pages in every game (`scripts/install.sh DevCheats`; delete `BepInEx\plugins\DevCheats` to remove). |
 | `mod/ForestEntrypointFix` | A BepInEx preloader patcher, shipped with the mods. Both game builds share one BepInEx config, but they need a different Unity assembly as BepInEx's entry point; without the patcher, mods load in only one of the builds. |
 | `scripts/RefCheck` | The member check behind `check-plugin.sh`. |
 | `scripts/chalk-icons.html` | Renders the chalk-style icons (the building twist arrow and the meat badges); open it in a browser. |
